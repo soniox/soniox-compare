@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Soniox Compare</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            padding: 20px;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .output {
+            display: flex;
+            min-height: 500px;
+            height: 100%;
+            padding: 20px;
+        }
+
+        .provider {
+            height: 100%;
+            align-items: stretch;
+            flex: 1;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .provider h2 {
+            margin: 0;
+            padding: 10px;
+            font-size: 16px;
+            text-transform: capitalize;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .provider-content-scroll {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .provider-error {
+            color: red;
+            padding: 10px;
+        }
+
+        .provider-content {
+            padding: 3px;
+        }
+
+        .provider-content .final {
+            color: black;
+        }
+
+        .provider-content .nonfinal {
+            color: gray;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <button id="trigger">Start</button> Currently set to: STT/en
+    </header>
+    <div class="output" id="output"></div>
+    <script>
+        const MODE = "stt";
+        const PROVIDERS = ["soniox", "openai", "google", "azure", "speechmatics", "deepgram", "assembly"];
+        const SOURCE_LANGUAGES = ["en-US", "sl-SI"];
+        const TARGET_TRANSLATION_LANGUAGE = "en-US";
+        const outputEl = document.getElementById("output");
+        const trigger = document.getElementById("trigger");
+
+        const selectors = {};
+        let ws = null;
+        let recorderState = "stopped";
+        let audioContext = null, processor = null, source = null, stream = null;
+
+        PROVIDERS.forEach((provider) => {
+            const providerEl = document.createElement("div");
+            providerEl.classList.add("provider");
+            providerEl.id = provider;
+            outputEl.appendChild(providerEl);
+
+            const providerTitleEl = document.createElement("h2");
+            providerTitleEl.textContent = provider;
+            providerEl.appendChild(providerTitleEl);
+
+            const providerErrorEl = document.createElement("div");
+            providerErrorEl.id = `${provider}-error`;
+            providerErrorEl.classList.add("provider-error");
+            providerEl.appendChild(providerErrorEl);
+
+            const providerContentScrollEl = document.createElement("div");
+            providerContentScrollEl.id = `${provider}-content-scroll`;
+            providerContentScrollEl.classList.add("provider-content-scroll");
+
+            const providerContentEl = document.createElement("div");
+            providerContentEl.id = `${provider}-content`;
+            providerContentEl.classList.add("provider-content");
+
+            const finalTokensEl = document.createElement("span");
+            finalTokensEl.id = `${provider}-final`;
+            finalTokensEl.classList.add("final");
+
+            const nonFinalTokensEl = document.createElement("span");
+            nonFinalTokensEl.id = `${provider}-nonfinal`;
+            nonFinalTokensEl.classList.add("nonfinal");
+
+            providerContentEl.appendChild(finalTokensEl);
+            providerContentEl.appendChild(nonFinalTokensEl);
+            providerContentScrollEl.appendChild(providerContentEl);
+            providerEl.appendChild(providerContentScrollEl);
+
+            selectors[provider] = {
+                final: finalTokensEl,
+                nonfinal: nonFinalTokensEl,
+                error: providerErrorEl
+            };
+        });
+
+        function resetProviderOutputs() {
+            Object.values(selectors).forEach(({ final, nonfinal, error }) => {
+                final.textContent = "";
+                nonfinal.textContent = "";
+                error.textContent = "";
+            });
+        }
+        function floatTo16BitPCM(float32Array) {
+            const int16Array = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                let s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return int16Array;
+        }
+
+        trigger.onclick = async () => {
+            if (recorderState === "stopped") {
+                resetProviderOutputs();
+                trigger.textContent = "Starting...";
+                recorderState = "starting";
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                const params = new URLSearchParams();
+                params.set("mode", MODE);
+                params.set("target_translation_language", TARGET_TRANSLATION_LANGUAGE);
+                SOURCE_LANGUAGES.forEach(lang => params.append("input_languages", lang));
+                PROVIDERS.forEach(p => params.append("providers", p));
+
+                ws = new WebSocket(`/compare/api/compare-websocket?${params.toString()}`);
+
+                ws.binaryType = "arraybuffer";
+
+                ws.onopen = async () => {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                    source = audioContext.createMediaStreamSource(stream);
+                    processor = audioContext.createScriptProcessor(4096, 1, 1);
+                    source.connect(processor);
+                    processor.connect(audioContext.destination);
+
+                    processor.onaudioprocess = (e) => {
+                        const input = e.inputBuffer.getChannelData(0);
+                        const pcmInt16 = floatTo16BitPCM(input);
+                        ws.send(new Int16Array(pcmInt16).buffer);
+                    };
+
+                    recorderState = "running";
+                    trigger.textContent = "Stop";
+                };
+
+                ws.onmessage = (event) => {
+                    let result;
+                    try { result = JSON.parse(event.data); } catch { return; }
+                    const provider = result.provider;
+                    if (!provider) return;
+                    if (result.error_message) {
+                        selectors[provider].error.textContent = result.error_message;
+                        return;
+                    }
+                    const finalDiv = selectors[provider].final;
+                    const nonFinalDiv = selectors[provider].nonfinal;
+                    for (let part of result.parts || []) {
+                        if (part.is_final) finalDiv.textContent += part.text;
+                    }
+                    let nonFinalText = "";
+                    for (let part of result.parts || []) {
+                        if (!part.is_final) nonFinalText += part.text;
+                    }
+                    nonFinalDiv.textContent = nonFinalText;
+                };
+
+                ws.onerror = (error) => {
+                    console.error("WebSocket error:", error);
+                    stopRecording();
+                };
+
+                ws.onclose = () => {
+                    stopRecording();
+                };
+            } else if (recorderState === "running") {
+                stopRecording();
+            }
+        };
+
+        function stopRecording() {
+            if (audioContext && processor) {
+                processor.disconnect();
+                source.disconnect();
+                audioContext.close();
+                audioContext = null;
+                processor = null;
+                source = null;
+            }
+            if (stream) {
+                stream.getTracks().forEach((track) => track.stop());
+                stream = null;
+            }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send("END");
+                ws.close();
+            }
+            trigger.textContent = "Start";
+            recorderState = "stopped";
+        }
+    </script>
+</body>
+
+</html>

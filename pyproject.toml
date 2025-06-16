@@ -1,0 +1,22 @@
+[project]
+name = "compare"
+version = "0.1.0"
+description = "STT and MT providers comparison tool"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.12.9",
+    "azure-cognitiveservices-speech>=1.44.0",
+    "dotenv>=0.9.9",
+    "fastapi[standard]>=0.115.12",
+    "google-cloud-speech>=2.32.0",
+    "jinja2>=3.1.6",
+    "python-dotenv>=1.1.0",
+    "speechmatics-python>=4.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.0",
+    "ruff>=0.11.13",
+]
