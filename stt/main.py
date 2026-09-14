@@ -27,6 +27,7 @@ from providers.openai import OpenaiProvider
 from providers.cartesia import CartesiaProvider
 from providers.elevenlabs import ElevenlabsProvider
 from providers.meta import MetaProvider
+from providers.smallest import SmallestProvider
 
 from providers.config import ProviderParams
 
@@ -41,6 +42,7 @@ PROVIDER_MAP: Dict[str, type[BaseProvider]] = {
     "cartesia": CartesiaProvider,
     "elevenlabs": ElevenlabsProvider,
     "meta": MetaProvider,
+    "smallest": SmallestProvider,
 }
 
 load_dotenv()

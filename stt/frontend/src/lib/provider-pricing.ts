@@ -77,6 +77,15 @@ export const PROVIDER_PRICING: Record<ProviderName, ProviderPricing> = {
       updatedAt: "September 2026",
     },
   },
+  smallest: {
+    pricePerHour: 0.24,
+    tooltip: {
+      description:
+        "Pulse (Realtime) pay-as-you-go rate: ~$0.004/minute of streamed " +
+        "audio, per smallest.ai/pricing/models.",
+      updatedAt: "September 2026",
+    },
+  },
 };
 
 export const getProviderPricing = (

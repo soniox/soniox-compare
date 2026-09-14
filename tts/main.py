@@ -7,7 +7,16 @@ from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from languages import SUPPORTED_LANGUAGES, is_language_supported
-from providers import azure, cartesia, elevenlabs, google, openai, soniox
+from providers import (
+    azure,
+    cartesia,
+    elevenlabs,
+    google,
+    openai,
+    smallest,
+    smallest_pro,
+    soniox,
+)
 from providers.base import ProviderError
 
 PROVIDER_MAP = {
@@ -17,6 +26,8 @@ PROVIDER_MAP = {
     "elevenlabs": elevenlabs.generate,
     "cartesia": cartesia.generate,
     "azure": azure.generate,
+    "smallest": smallest.generate,
+    "smallest_pro": smallest_pro.generate,
 }
 
 load_dotenv()

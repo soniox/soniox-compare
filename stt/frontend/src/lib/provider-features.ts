@@ -9,6 +9,7 @@ export const ALL_PROVIDERS_LIST = [
   "cartesia",
   "elevenlabs",
   "meta",
+  "smallest",
 ] as const;
 export type ProviderName = (typeof ALL_PROVIDERS_LIST)[number];
 
@@ -27,6 +28,7 @@ export const PROVIDER_ICON_FILES: Record<ProviderName, string> = {
   cartesia: "cartesia-icon.svg",
   elevenlabs: "elevenlabs-icon.svg",
   meta: "meta-icon.svg",
+  smallest: "smallest-icon.svg",
 };
 
 export const getProviderIcon = (provider: ProviderName): string =>

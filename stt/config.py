@@ -79,6 +79,14 @@ def get_meta_service_config():
     )
 
 
+def get_smallest_service_config():
+    return ServiceConfig(
+        api_key=os.environ["SMALLEST_API_KEY"],
+        websocket_url="wss://api.smallest.ai/waves/v1/stt/live",
+        model="pulse",
+    )
+
+
 def get_azure_service_config():
     return ServiceConfig(
         api_key=os.environ["AZURE_API_KEY"],
@@ -107,6 +115,7 @@ _SERVICE_CONFIG_FACTORIES = {
     "openai": get_openai_service_config,
     "elevenlabs": get_elevenlabs_service_config,
     "meta": get_meta_service_config,
+    "smallest": get_smallest_service_config,
 }
 
 

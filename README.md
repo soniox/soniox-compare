@@ -75,6 +75,7 @@ A key is only needed for providers you run. Google TTS use a service-account JSO
 | `ASSEMBLY_API_KEY` | ● | | | AssemblyAI |
 | `SPEECHMATICS_API_KEY` | ● | | ● | Speechmatics |
 | `AZURE_API_KEY` + `AZURE_REGION` | ● | ● | ● | Azure |
+| `SMALLEST_API_KEY` | ● | ● | | Smallest AI |
 | `GOOGLE_CREDENTIALS_JSON_BASE64` | | ● | | Google TTS |
 | `GOOGLE_API_KEY` | ● | | ● | Gemini |
 | `META_API_KEY` | ● | | | Meta |
