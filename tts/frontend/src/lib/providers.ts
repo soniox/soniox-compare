@@ -5,7 +5,7 @@ export const PROVIDERS = [
   "google",
   "cartesia",
   "azure",
-  "smallest",
+  // "smallest",
   "smallest_pro",
 ] as const;
 
@@ -18,7 +18,7 @@ export const PROVIDER_DISPLAY_NAMES: Record<ProviderName, string> = {
   google: "Google",
   cartesia: "Cartesia",
   azure: "Azure",
-  smallest: "Smallest AI",
+  // smallest: "Smallest AI",
   smallest_pro: "Smallest AI Pro",
 };
 
@@ -29,7 +29,7 @@ export const PROVIDER_MODELS: Record<ProviderName, string> = {
   google: "gemini-2.5-flash-tts",
   cartesia: "sonic-3.5",
   azure: "dragon-hd-omni",
-  smallest: "lightning_v3.1",
+  // smallest: "lightning_v3.1",
   smallest_pro: "lightning_v3.1_pro",
 };
 
@@ -40,7 +40,7 @@ const PROVIDER_ICON_FILES: Record<ProviderName, string> = {
   google: "google-icon.svg",
   cartesia: "cartesia-icon.svg",
   azure: "azure-icon.svg",
-  smallest: "smallest-icon.svg",
+  // smallest: "smallest-icon.svg",
   smallest_pro: "smallest-icon.svg",
 };
 

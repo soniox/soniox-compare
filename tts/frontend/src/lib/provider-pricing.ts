@@ -85,17 +85,17 @@ export const PROVIDER_PRICING: Record<ProviderName, ProviderPricing> = {
       updatedAt: "July 2026",
     },
   },
-  smallest: {
-    billing: "characters",
-    pricePerThousandChars: 0.0175,
-    pricePerHour: 1.05,
-    tooltip: {
-      description:
-        "Lightning v3.1: $0.175 per 10K characters, per " +
-        "smallest.ai/pricing/models; converted at ~1K characters/minute.",
-      updatedAt: "September 2026",
-    },
-  },
+  // smallest: {
+  //   billing: "characters",
+  //   pricePerThousandChars: 0.0175,
+  //   pricePerHour: 1.05,
+  //   tooltip: {
+  //     description:
+  //       "Lightning v3.1: $0.175 per 10K characters, per " +
+  //       "smallest.ai/pricing/models; converted at ~1K characters/minute.",
+  //     updatedAt: "September 2026",
+  //   },
+  // },
   smallest_pro: {
     billing: "characters",
     pricePerThousandChars: 0.0195,
