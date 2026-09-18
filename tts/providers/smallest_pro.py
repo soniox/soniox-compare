@@ -22,7 +22,7 @@ async def generate(text: str, language: str) -> AsyncIterator[bytes]:
         },
         json={
             "text": text,
-            "voice_id": "meher",
+            "voice_id": "kelsey",
             "model": "lightning_v3.1_pro",
             "language": smallest_language,
             "sample_rate": 44100,
