@@ -1,3 +1,4 @@
+import type React from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import { X } from "lucide-react";
 import { motion } from "motion/react";
@@ -13,7 +14,7 @@ import { ProviderLogo } from "./provider-logo";
 type Props = {
   provider: ProviderName;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   titleTooltip?: ReactNode;
   onRemove: () => void;
   canRemove: boolean;
@@ -106,7 +107,7 @@ export const SortableProviderCard = ({
             headerProps={disabled ? undefined : { ...attributes, ...listeners }}
             headerClassName={cn(
               "touch-none select-none",
-              !disabled && "cursor-grab active:cursor-grabbing"
+              !disabled && "cursor-grab active:cursor-grabbing",
             )}
             trailingElement={
               canRemove ? (

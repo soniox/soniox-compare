@@ -19,12 +19,26 @@ const IGNORED_FEATURES = [
   "confidence_scores",
   "timestamps",
   "max_language_hints",
+  // Rendered by ProviderOptions on the card, not as a capability row.
+  "options",
 ];
 
 const featureInfoSchema = z.object({
   state: z.enum(["SUPPORTED", "UNSUPPORTED", "PARTIAL"]),
   comment: z.string().optional(),
 });
+
+const optionValueSchema = z.union([z.boolean(), z.number(), z.string()]);
+
+export const providerOptionSchema = z.object({
+  default: optionValueSchema,
+  comment: z.string().default(""),
+});
+
+export const providerOptionsSchema = z.record(z.string(), providerOptionSchema);
+
+export type ProviderOptionValue = z.infer<typeof optionValueSchema>;
+export type ProviderOptionSpec = z.infer<typeof providerOptionSchema>;
 
 const providerFeaturesSchema = z.record(
   z.enum(ALL_PROVIDERS_LIST),
@@ -33,9 +47,12 @@ const providerFeaturesSchema = z.record(
       name: z.string(),
       model: z.string(),
       max_language_hints: z.number().nullable().optional(),
+      options: providerOptionsSchema.default({}),
     })
     .catchall(z.union([z.boolean(), featureInfoSchema])),
 );
+
+export type ProviderOptionValues = z.infer<typeof providerOptionsSchema>;
 
 export type FeatureInfo = z.infer<typeof featureInfoSchema>;
 export type ProviderFeatures = z.infer<typeof providerFeaturesSchema>;

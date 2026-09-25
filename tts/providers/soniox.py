@@ -15,7 +15,7 @@ async def generate(text: str, language: str) -> AsyncIterator[bytes]:
         json={
             "model": "tts-rt-v2",
             "language": language,
-            "voice": "Daniel",
+            "voice": "Hazel",
             "audio_format": "mp3",
             "text": text,
         },

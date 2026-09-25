@@ -4,11 +4,13 @@ import type { ProviderName } from "@/lib/providers";
 interface Config {
   languages: string[];
   provider_languages: Record<ProviderName, string[]>;
+  auto_detect_providers: ProviderName[];
 }
 
 interface ConfigContextType {
   languages: string[];
   isLanguageSupported: (language: string, provider: ProviderName) => boolean;
+  infersLanguage: (provider: ProviderName) => boolean;
 }
 
 const ConfigContext = createContext<ConfigContextType | null>(null);
@@ -20,7 +22,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch("/compare/api/config")
       .then((response) => {
-        if (!response.ok) throw new Error(`Request failed (${response.status})`);
+        if (!response.ok)
+          throw new Error(`Request failed (${response.status})`);
         return response.json();
       })
       .then(setConfig)
@@ -49,6 +52,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
         languages: config.languages,
         isLanguageSupported: (language, provider) =>
           config.provider_languages[provider].includes(language),
+        infersLanguage: (provider) =>
+          config.auto_detect_providers.includes(provider),
       }}
     >
       {children}

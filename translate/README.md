@@ -6,7 +6,7 @@ Real-time speech translation comparison. Speak (mic or file) and see the origina
 
 ## Providers
 
-Five runnable providers in `PROVIDER_MAP` (`main.py`), plus four declared greyed-out in `providers/unsupported.py`. Model IDs are the wire values from `config.py` / each provider module.
+Five runnable providers in `PROVIDER_MAP` (`main.py`), plus four declared greyed-out in `providers/unsupported.py`. Model IDs are the wire values, declared once as a module constant in each provider module.
 
 | Provider     | Key            | Model(s)                          | `s2s`? |
 | ------------ | -------------- | --------------------------------- | ------ |
@@ -26,10 +26,9 @@ All under `/compare/api` except the operational `/.well-known/…` slugs.
 | ------ | ---- | ------- |
 | `WS`  | `/compare/api/compare-websocket` | Live session. Query: `providers[]`, `mode` (`text`/`s2s`), `target_language`, `voice`, `language_hints[]`, `enable_speaker_diarization`, `enable_language_identification`, `enable_endpoint_detection` |
 | `GET` | `/compare/api/providers-features` | Per-provider capability matrix (includes the greyed-out `unsupported.py` entries) |
-| `GET` | `/compare/api/language-support`   | Per-provider *source*-language restrictions (currently `{}` — every provider accepts any source) |
-| `GET` | `/compare/api/target-language-support` | Per-provider target-language codes (for greying out the target picker) |
+| `GET` | `/compare/api/language-support`   | `{all_languages, providers}` — per-provider *source*-language codes (for greying out the source picker) plus their union, which is what the picker offers; a provider absent from `providers` is unconstrained |
+| `GET` | `/compare/api/target-language-support` | Same shape for *target* languages (for greying out the target picker); a provider absent from `providers` can translate into nothing |
 | `GET` | `/compare/api/providers/{name}/voices` | TTS voices the provider offers (s2s) |
-| `GET` | `/compare/api/soniox-model`       | Soniox `stt-rt-v5` model object; its `languages` drive the source-language list |
 | `GET` | `/.well-known/health/soniox-translation-compare`  | Health check → `ok` |
 | `GET` | `/.well-known/version/soniox-translation-compare` | `VERSION` env var |
 
@@ -38,8 +37,8 @@ All under `/compare/api` except the operational `/.well-known/…` slugs.
 - **Two modes** — selected via the WS `mode` query param (`Mode = Literal["text", "s2s"]` in `providers/config.py`):
   - `text` — translated text only; every runnable provider supports it.
   - `s2s` — the translation is also synthesized and streamed back as PCM. Supported by Soniox, OpenAI, Gemini; **partial** for Azure (only target languages with a configured neural voice); **unsupported** for Speechmatics (no TTS).
-- **Target language & voices.** `target_language` (default `es`) and `voice` are per-session query params. `/target-language-support` lists each provider's target codes; `/providers/{name}/voices` lists selectable voices — OpenAI and Gemini expose no voice selection (Gemini echoes the speaker's voice). Per-provider target-language support lives in `languages.py` (`LANGUAGE_MAP`, keyed by Soniox code); Soniox and OpenAI fetch their target lists live from the Soniox API.
-- **Source-language handling.** `/language-support` is empty by design: every provider either auto-detects or takes a best-effort `language_hints` hint, so the source side is unconstrained. Speechmatics is single-language (source fixed for the session).
+- **Target language & voices.** `target_language` (default `es`) and `voice` are per-session query params. `/target-language-support` lists each provider's target codes; `/providers/{name}/voices` lists selectable voices — OpenAI and Gemini expose no voice selection. `languages.py` holds two maps keyed by canonical ISO-639-1 code: `TARGET_LANGUAGE_MAP` (what each provider translates into) and `SOURCE_LANGUAGE_MAP` (the source code or locale each provider that is *told* the source expects — Azure and Speechmatics; the others auto-detect). Both support endpoints are built from these maps (`target_language_support()` / `source_language_support()`); provider classes hold no language data. Azure's per-target neural voices live in `providers/azure.py` (`_TARGET_VOICE`), since it is the only provider that picks one. Soniox is the one provider whose list is fetched live from the Soniox API and merged into both endpoints.
+- **Source-language handling.** `language_hints` carries the source language. Only the providers that are *told* it appear in `/language-support`: Azure needs a full locale and otherwise identifies one of four candidates, transcribing anything else as the wrong language; Speechmatics rejects an unsupported source outright and is single-language per session; Soniox has its own list. Gemini and OpenAI auto-detect and never receive the hint, so they are absent and unconstrained.
 - **Event builders** (`utils.py`): `make_part`, `data_event`, `audio_event`, `error_message`, `info_message`, `session_done_event`. Providers push these onto `host_queue`; audio events carry base64 PCM the UI plays gaplessly via Web Audio (s2s).
 - **Session guards.** `MAX_SESSION_SECONDS = 5 min` and `MAX_STREAMED_AUDIO_BYTES = 12 MB` (decoded PCM) end a session with a message on every card.
 - **Console script.** Unlike `stt`/`tts`, this app defines `[project.scripts] dev = "dev:main"`, so `uv run dev` starts the backend (`dev.py`).

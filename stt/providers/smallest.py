@@ -11,12 +11,16 @@ from providers.base import (
     BaseProvider,
     ProviderError,
 )
-from providers.config import ProviderConfig, SupportedFeatures, FeatureStatus
+from providers.config import (
+    FeatureStatus,
+    ProviderConfig,
+    ProviderOption,
+    SupportedFeatures,
+)
 from utils import make_part
 
 # Pulse accepts at most 100 keyword-boost terms per session.
 MAX_KEYWORDS = 100
-
 
 class SmallestProvider(BaseProvider):
     name = "smallest"
@@ -82,12 +86,13 @@ class SmallestProvider(BaseProvider):
                 "diarize": (
                     "true" if self.config.params.enable_speaker_diarization else "false"
                 ),
-                # Punctuation/capitalization and spoken->written normalization
-                # ("five dollars" -> "$5"); on for parity with the other
-                # providers' comparable formatting flags (e.g. Deepgram's
-                # `smart_format`/`numerals`).
-                "format": "true",
-                "itn_normalize": "true",
+                # Punctuation/capitalization, and spoken->written normalization
+                # ("five dollars" -> "$5"). Both default to on, so turning the
+                # setting off means sending "false" rather than omitting them.
+                "format": ("true" if self.config.params.options["format"] else "false"),
+                "itn_normalize": (
+                    "true" if self.config.params.options["itn_normalize"] else "false"
+                ),
             }
             keywords = self._keywords()
             if keywords:
@@ -108,6 +113,7 @@ class SmallestProvider(BaseProvider):
 
     async def disconnect(self) -> None:
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         if self._sender:
             self._sender.cancel()
         if self._receiver:
@@ -245,7 +251,11 @@ class SmallestProvider(BaseProvider):
             # (north_indic, multi-asian, multi-south-indic), not one
             # universal any-language auto-detect mode.
             single_multilingual_model=unsupported,
-            language_hints=supported,
+            language_hints=FeatureStatus.unsupported(
+                comment="A language must be chosen for every session; the "
+                "selection sets the transcription language outright rather "
+                "than hinting a model that detects it.",
+            ),
             language_identification=FeatureStatus.unsupported(
                 comment="`language` on the response echoes back the single "
                 "language hint we requested rather than identifying one — "
@@ -267,4 +277,21 @@ class SmallestProvider(BaseProvider):
                 "turn detection.",
             ),
             manual_finalization=supported,
+            # Punctuation, casing, and spoken-to-written normalization.
+            options={
+                "format": ProviderOption(
+                    default=False,
+                    comment="Punctuation and casing. Pulse applies it unless "
+                    "this app sends false.",
+                ),
+                "itn_normalize": ProviderOption(
+                    default=False,
+                    comment="Spoken-to-written normalization: \"five dollars\" "
+                    "becomes \"$5\". Also on at Pulse unless sent false.",
+                ),
+            },
+            text_formatting=FeatureStatus.supported(
+                comment="`format` and `itn_normalize` add punctuation, casing "
+                "and spoken-to-written normalization when the setting is on.",
+            ),
         )

@@ -21,7 +21,12 @@ from providers.base import (
     BaseProvider,
     ProviderError,
 )
-from providers.config import FeatureStatus, ProviderConfig, SupportedFeatures
+from providers.config import (
+    FeatureStatus,
+    ProviderConfig,
+    ProviderOption,
+    SupportedFeatures,
+)
 from utils import make_part
 
 # Sentinel pushed onto the audio queue to end the streaming generator cleanly.
@@ -54,13 +59,20 @@ class AssemblyProvider(BaseProvider):
             params = StreamingParameters(
                 sample_rate=self.config.common.sample_rate,
                 encoding=Encoding.pcm_s16le,
-                speech_model=SpeechModel.universal_3_5_pro,
+                speech_model=SpeechModel(self.config.service.model),
                 # Emit partials continuously (not only on pauses) so the live
                 # transcript tracks the audio closely. Without this, a long
                 # turn shows almost nothing until it finalizes, and the tail of
                 # the stream can appear stuck on a stale partial.
                 continuous_partials=True,
             )
+
+            # Only the streaming model declares `format_turns`, so the default
+            # here stands for "this model does not expose it" rather than
+            # restating a declared value: Universal-3.5 Pro is formatted
+            # whatever it is set to.
+            if self.config.params.options.get("format_turns", False):
+                params.format_turns = True
 
             # Universal-3.5 Pro returns `language_code`/`language_confidence` on
             # Turn events only when language detection is enabled.
@@ -76,7 +88,7 @@ class AssemblyProvider(BaseProvider):
             # one language (best-effort). With no hint we rely on code-switching.
             language_hints = self.config.params.language_hints
             if len(language_hints) == 1:
-                lang_mapping = get_language_mapping("assembly")
+                lang_mapping = get_language_mapping(self.name)
                 mapped = lang_mapping.get(language_hints[0])
                 if mapped is not None:
                     params.language_code = mapped
@@ -102,6 +114,7 @@ class AssemblyProvider(BaseProvider):
         if not self._is_connected and self.client is None:
             return
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         # Unblock the audio generator so `stream()` can finish.
         try:
             self.client_queue.put_nowait(_STREAM_END)
@@ -264,12 +277,11 @@ class AssemblyProvider(BaseProvider):
                 comment="Real-time speaker diarization (public beta). Short "
                 "turns may be labeled UNKNOWN until enough audio accumulates.",
             ),
-            customization=FeatureStatus.unsupported(
-                comment="Keyterms/prompt customization is available in the API "
-                "but not wired up here.",
-            ),
+            # The API takes `keyterms_prompt`; the context is not sent here.
+            customization=supported,
             timestamps=supported,
             confidence_scores=supported,
+            # The turn-silence parameters are not sent; the SDK defaults apply.
             real_time_latency_config=FeatureStatus.partial(
                 comment="Use an audio chunk size of 50ms. Larger chunk sizes "
                 "are workable, but may result in latency fluctuations.",
@@ -278,4 +290,32 @@ class AssemblyProvider(BaseProvider):
             endpoint_detection=supported,
             # `force_endpoint()` ends the current turn on demand.
             manual_finalization=supported,
+            text_formatting=FeatureStatus.partial(
+                comment="Universal-3.5 Pro is formatted whatever `format_turns` "
+                "is set to, so the setting has no effect on this model.",
+            ),
         )
+
+
+class AssemblyStreamingProvider(AssemblyProvider):
+    """The cheaper streaming tier. Same socket and SDK, six languages instead
+    of nineteen, and it returns unformatted text — no casing, no punctuation."""
+
+    name = "assembly:streaming"
+
+    @staticmethod
+    def get_available_features():
+        features = AssemblyProvider.get_available_features()
+        features.model = "universal-streaming-multilingual"
+        features.options = {
+            "format_turns": ProviderOption(
+                default=False,
+                comment="Punctuation and casing on each finished turn; this "
+                "model returns neither without it.",
+            )
+        }
+        features.text_formatting = FeatureStatus.supported(
+            comment="`format_turns` adds punctuation and casing when the "
+            "setting is on; without it this model returns neither.",
+        )
+        return features

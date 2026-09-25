@@ -28,11 +28,16 @@ export const SettingsFields = () => {
     providerFeatures?.[provider]?.name ?? provider;
 
   // Providers whose feature flag is SUPPORTED (or PARTIAL) for a given key.
-  const getProvidersForFeature = (featureKey: string): ProviderName[] =>
+  // `strict` drops PARTIAL, for settings the partial providers simply ignore.
+  const getProvidersForFeature = (
+    featureKey: string,
+    strict = false
+  ): ProviderName[] =>
     ALL_PROVIDERS_LIST.filter((provider) => {
       const value = providerFeatures?.[provider]?.[featureKey];
       if (typeof value === "boolean") return value;
       if (value && typeof value === "object") {
+        if (strict) return value.state === "SUPPORTED";
         return value.state === "SUPPORTED" || value.state === "PARTIAL";
       }
       return false;

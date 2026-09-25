@@ -5,7 +5,12 @@ from providers.base import (
     BaseProvider,
     ProviderError,
 )
-from providers.config import ProviderConfig, SupportedFeatures, FeatureStatus
+from providers.config import (
+    FeatureStatus,
+    ProviderConfig,
+    ProviderOption,
+    SupportedFeatures,
+)
 from utils import make_part
 from typing import Any
 
@@ -88,11 +93,15 @@ class SpeechmaticsProvider(BaseProvider):
         transcription = {
             "language": language,
             "model": "enhanced",
-            "max_delay": 2.0,
+            "max_delay": self.config.params.options["max_delay"],
             "enable_partials": True,
         }
         if self.config.params.enable_speaker_diarization:
             transcription["diarization"] = "speaker"
+        if not self.config.params.options["punctuation"]:
+            # Punctuation is on by default; an empty permitted-marks list is
+            # how this API turns it off.
+            transcription["punctuation_overrides"] = {"permitted_marks": []}
 
         msg = {
             "message": "StartRecognition",
@@ -104,6 +113,7 @@ class SpeechmaticsProvider(BaseProvider):
 
     async def disconnect(self) -> None:
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         if self._sender:
             self._sender.cancel()
         if self._receiver:
@@ -232,6 +242,23 @@ class SpeechmaticsProvider(BaseProvider):
             timestamps=supported,  # https://docs.speechmatics.com/features-other/word-alignment
             confidence_scores=supported,  # https://docs.speechmatics.com/features/entities#example-transcription-output
             real_time_latency_config=supported,  # https://docs.speechmatics.com/features/realtime-latency
+            # Seconds the recognizer buffers before finalizing a transcript:
+            # lower is faster, higher is more accurate.
+            options={
+                "max_delay": ProviderOption(
+                    default=2.0,
+                    comment="Seconds the recognizer may buffer before it has to "
+                    "finalize: lower is faster, higher is more accurate.",
+                ),
+                "punctuation": ProviderOption(
+                    default=False,
+                    comment="Punctuation is on at Speechmatics; off sends an "
+                    "empty permitted-marks list, which is how it is disabled.",
+                ),
+            },
+            text_formatting=FeatureStatus.supported(
+                comment="Punctuation is removed via `punctuation_overrides` when the setting is off.",
+            ),
             endpoint_detection=unsupported,  # True previously, but could not find this feature.
             manual_finalization=unsupported,
         )

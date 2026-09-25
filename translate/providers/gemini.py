@@ -13,7 +13,7 @@ from providers.config import (
     SupportedFeatures,
 )
 from utils import audio_event, data_event, error_message, make_part, session_done_event
-from languages import SUPPORTED_LANGUAGES, get_provider_language, is_language_supported
+from languages import get_target_language
 
 log = logging.getLogger("translate.gemini")
 
@@ -45,25 +45,12 @@ class GeminiProvider(BaseProvider):
         # projects: the live-translate model's translation_config is only
         # supported in Developer API mode.
         self._client = genai.Client(api_key=config.service.api_key)
-        self._audio_queue: asyncio.Queue[tuple[str, bytes | None]] = asyncio.Queue()
         # Set once the live session is open and ready to accept audio.
         self._ready: asyncio.Event = asyncio.Event()
         # Set on send_end(): the recv loop then waits for Gemini to flush its
         # translation backlog and go idle before emitting session_done.
         self._draining: asyncio.Event = asyncio.Event()
         self._run_task: asyncio.Task | None = None
-
-    @classmethod
-    def model_info(cls) -> dict[str, str]:
-        return {"model": MODEL}
-
-    @classmethod
-    async def list_languages(cls, api_key: str | None = None) -> list[dict]:
-        return [
-            {"code": c}
-            for c in SUPPORTED_LANGUAGES
-            if is_language_supported(c, "gemini")
-        ]
 
     async def connect(self) -> None:
         if self._is_connected:
@@ -95,36 +82,17 @@ class GeminiProvider(BaseProvider):
             raise ProviderError("Gemini session closed before becoming ready")
         self._is_connected = True
 
-    async def disconnect(self) -> None:
-        if self._stopped:
-            return
-        self._stopped = True
-        self._is_connected = False
-        if self._run_task is not None:
-            self._run_task.cancel()
-            await asyncio.gather(self._run_task, return_exceptions=True)
-        await self.host_queue.put(None)
-
-    async def send(self, data: bytes) -> None:
-        await self._audio_queue.put(("audio", data))
-
-    async def send_end(self) -> None:
-        """Signal that no more audio will arrive. The send loop stops feeding
-        Gemini and the recv loop tears the session down after a drain grace
-        period."""
-        await self._audio_queue.put(("end", None))
-
     async def _run(self) -> None:
         """Own the live session for its whole lifetime: the SDK session object
         is only valid inside the `async with` block, so the send/recv loops run
-        nested within it."""
+        nested within it. Cancelling this task (the base `disconnect`) is what
+        closes the session, so there is no `_close_upstream` here."""
         config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
             translation_config=types.TranslationConfig(
                 echo_target_language=True,
-                target_language_code=(
-                    get_provider_language(self.params.target_language, "gemini")
-                    or self.params.target_language
+                target_language_code=get_target_language(
+                    self.params.target_language, "gemini"
                 ),
             ),
             input_audio_transcription=types.AudioTranscriptionConfig(),

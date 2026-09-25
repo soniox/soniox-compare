@@ -31,6 +31,8 @@ class BaseProvider(ABC):
         self._is_connected = False
         self._tasks: list[asyncio.Task] = []
         self._stopped = False
+        # ("audio", pcm) or ("end", None), drained by the provider's send loop.
+        self._audio_queue: asyncio.Queue[tuple[str, bytes | None]] = asyncio.Queue()
 
     @property
     def params(self):
@@ -81,31 +83,39 @@ class BaseProvider(ABC):
                 return items
             item = self.host_queue.get_nowait()
 
-    @classmethod
-    def model_info(cls) -> dict[str, str]:
-        """UI labels per active model, e.g. {"stt": "stt-rt-v5", "tts": "tts-rt-v1"}."""
-        features = cls.get_available_features()
-        return {"model": features.model}
-
     @abstractmethod
     async def connect(self) -> None:
         """Establish the upstream connection. Returns when ready for audio."""
         ...
 
-    @abstractmethod
     async def disconnect(self) -> None:
-        """Close the upstream connection and clean up resources."""
-        ...
+        """Stop every task, release the upstream connection and push the `None`
+        sentinel that ends `receive()`. Idempotent."""
+        if self._stopped:
+            return
+        self._stopped = True
+        self._is_connected = False
+        for t in self._tasks:
+            t.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
+        try:
+            await self._close_upstream()
+        except Exception:
+            # The session is over either way; the sentinel below must still go.
+            pass
+        await self.host_queue.put(None)
 
-    @abstractmethod
+    async def _close_upstream(self) -> None:
+        """Release the upstream connection after every task has been cancelled.
+        Providers whose connection dies with their task need not override."""
+
     async def send(self, data: bytes) -> None:
         """Push one PCM chunk (16 kHz s16le mono) to the provider."""
-        ...
+        await self._audio_queue.put(("audio", data))
 
-    @abstractmethod
     async def send_end(self) -> None:
         """Signal no more audio will arrive — finish the current utterance."""
-        ...
+        await self._audio_queue.put(("end", None))
 
     @staticmethod
     @abstractmethod
@@ -117,11 +127,6 @@ class BaseProvider(ABC):
     async def list_voices(cls, api_key: str | None = None) -> list[dict]:
         """TTS voices this provider offers. Fixed-voice providers return one."""
         return [{"id": "default", "name": "(default)"}]
-
-    @classmethod
-    async def list_languages(cls, api_key: str | None = None) -> list[dict]:
-        """Target languages, as [{"code": "es", "name": "Spanish"}, ...]."""
-        return []
 
 
 def validate_capabilities(

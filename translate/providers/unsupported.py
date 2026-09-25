@@ -54,8 +54,8 @@ UNSUPPORTED_PROVIDERS: dict[str, SupportedFeatures] = {
     "cartesia": _no_translation(
         "Cartesia",
         "ink-2",
-        "Cartesia's streaming STT transcribes English only and offers no "
-        "translation, so it cannot take part in this comparison.",
+        "Cartesia's streaming STT offers no translation, so it cannot take "
+        "part in this comparison.",
     ),
     "elevenlabs": _no_translation(
         "ElevenLabs",

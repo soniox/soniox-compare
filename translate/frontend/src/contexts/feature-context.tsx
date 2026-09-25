@@ -8,11 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { z } from "zod";
-import {
-  ALL_PROVIDERS_LIST,
-  SONIOX_PROVIDER,
-  type ProviderName,
-} from "@/lib/provider-features";
+import { ALL_PROVIDERS_LIST, type ProviderName } from "@/lib/provider-features";
 import { snakeCaseToTitle } from "@/lib/utils";
 
 import type { Mode } from "@/hooks/use-url-settings";
@@ -65,8 +61,6 @@ interface FeatureContextType {
   getProviderFeatures: (
     providerName: ProviderName,
   ) => Record<string, FeatureInfo | boolean | string>;
-  getFeatureSet: () => string[];
-  getProviderFeaturesTextTable: (providerName: ProviderName) => string;
   getProviderFeaturesList: (providerName: ProviderName) => FeatureListItem[];
   /** Whether a provider offers a feature at all; PARTIAL counts as yes. */
   supportsFeature: (providerName: ProviderName, featureKey: string) => boolean;
@@ -153,46 +147,6 @@ export const FeatureProvider = ({ children }: Props) => {
     [providerFeatures],
   );
 
-  const getFeatureSet = useCallback(() => {
-    return Object.keys(getProviderFeatures(SONIOX_PROVIDER));
-  }, [getProviderFeatures]);
-
-  const getProviderFeaturesTextTable = useCallback(
-    (providerName: ProviderName) => {
-      const filteredProviderFeatures = getProviderFeatures(providerName);
-
-      const getStateIcon = (state: FeatureInfo["state"]) => {
-        switch (state) {
-          case "SUPPORTED":
-            return "✅";
-          case "UNSUPPORTED":
-            return "❌";
-          case "PARTIAL":
-            return "⚠️";
-        }
-      };
-
-      return Object.entries(filteredProviderFeatures)
-        .filter(([, value]) => {
-          if (typeof value === "string") {
-            return false;
-          }
-          return true;
-        })
-        .map(([key, value]) => {
-          if (typeof value === "boolean") {
-            return `${value ? "✅" : "❌"} ${key}:`;
-          }
-          if (typeof value === "string") {
-            return null;
-          }
-          return `${getStateIcon(value.state)} ${snakeCaseToTitle(key)}`;
-        })
-        .join("\n");
-    },
-    [getProviderFeatures],
-  );
-
   const getProviderFeaturesList = useCallback(
     (providerName: ProviderName): FeatureListItem[] => {
       const filteredProviderFeatures = getProviderFeatures(providerName);
@@ -255,8 +209,6 @@ export const FeatureProvider = ({ children }: Props) => {
         isLoading,
         error,
         getProviderFeatures,
-        getFeatureSet,
-        getProviderFeaturesTextTable,
         getProviderFeaturesList,
         supportsFeature,
         getModeSupport,

@@ -14,8 +14,6 @@ export const Panel = ({
   headerClassName,
   disableTitleTooltip = false,
   logo,
-  cost = "$0.00",
-  pricePerMinute = "$0.00/min",
   priceSection,
 }: {
   title: string;
@@ -29,10 +27,7 @@ export const Panel = ({
   headerClassName?: string;
   disableTitleTooltip?: boolean;
   logo?: React.ReactNode;
-  cost?: string;
-  pricePerMinute?: string;
-  // When provided, replaces the default cost/price block (e.g. a live cost
-  // estimate with its own tooltip). Falls back to the static cost strings.
+  // Live cost estimate block, with its own tooltip.
   priceSection?: React.ReactNode;
 }) => {
   const titleElement = titleTooltip && !disableTitleTooltip ? (
@@ -87,17 +82,7 @@ export const Panel = ({
             )}
           </div>
 
-          {/* Cost + price per minute */}
-          {priceSection ?? (
-            <div className="flex flex-col items-end shrink-0 text-right">
-              <span className="text-sm font-bold tabular-nums leading-tight text-zinc-800 dark:text-zinc-100">
-                {cost}
-              </span>
-              <span className="text-[10px] font-medium tabular-nums leading-tight text-zinc-400">
-                {pricePerMinute}
-              </span>
-            </div>
-          )}
+          {priceSection}
 
           {trailingElement && (
             <div className="shrink-0 flex items-center">{trailingElement}</div>

@@ -22,9 +22,11 @@ export const PROVIDER_PRICING: Partial<Record<ProviderName, ProviderPricing>> =
       pricePerHourS2S: 0.88,
       tooltip: {
         description:
-          "stt-rt-v5 bundles transcription and translation in one rate. " +
-          "Speech-to-speech adds tts-rt-v2.",
-        updatedAt: "June 2026",
+          "Billed per token at the same rates as transcription, with no " +
+          "separate translation fee — but translation adds a second stream " +
+          "of output tokens, so ~$0.18/hour against $0.12 for transcription " +
+          "alone. Speech-to-speech adds tts-rt-v2 at ~$0.70/hour.",
+        updatedAt: "September 2026",
       },
     },
     openai: {
@@ -50,25 +52,25 @@ export const PROVIDER_PRICING: Partial<Record<ProviderName, ProviderPricing>> =
       },
     },
     speechmatics: {
-      pricePerHour: 1.08,
+      pricePerHour: 1.45,
       tooltip: {
         description:
-          "ursa-2 real-time on the enhanced operating point ($0.43/hour) plus " +
-          "the translation bolt-on ($0.65/hour). No speech-to-speech rate: " +
-          "the provider cannot speak the translation.",
-        updatedAt: "July 2026",
+          "Real-time Enhanced on the Pro plan ($0.80/hour, list rate with no " +
+          "opt-in discounts) plus the translation bolt-on ($0.65/hour). No " +
+          "speech-to-speech rate: the provider cannot speak the translation.",
+        updatedAt: "September 2026",
       },
     },
     azure: {
       pricePerHour: 2.5,
-      pricePerHourS2S: 3.36,
+      pricePerHourS2S: 3.25,
       tooltip: {
         description:
           "Speech translation is $2.50/audio hour and covers the source " +
           "transcript and up to 2 target languages. Speaking the translation " +
-          "bills prebuilt neural TTS on top, at $16 per 1M characters " +
-          "(~54k characters per hour of speech).",
-        updatedAt: "July 2026",
+          "bills prebuilt neural TTS on top, at $15 per 1M characters " +
+          "(50,000 characters per hour of speech).",
+        updatedAt: "September 2026",
       },
     },
   };

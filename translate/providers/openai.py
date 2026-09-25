@@ -4,7 +4,6 @@ import json
 import logging
 import os
 
-import httpx
 import websockets
 
 from providers.audio import StreamResampler
@@ -23,7 +22,6 @@ MODEL = "gpt-realtime-translate"
 # OpenAI's realtime "audio/pcm" format is pinned to 24 kHz, while the browser
 # captures a single 16 kHz stream shared by every provider. Resample on ingest.
 SAMPLE_RATE = 24000
-SONIOX_STT_ENDPOINT = "https://api.soniox.com/v1/models"  # For languages
 
 
 class OpenaiProvider(BaseProvider):
@@ -36,33 +34,9 @@ class OpenaiProvider(BaseProvider):
         super().__init__(config)
         self.api_key = config.service.api_key
         self._ws: websockets.ClientConnection | None = None
-        self._audio_queue: asyncio.Queue[tuple[str, bytes | None]] = asyncio.Queue()
         self._resampler = StreamResampler(
             in_rate=config.common.sample_rate, out_rate=SAMPLE_RATE
         )
-
-    @classmethod
-    def model_info(cls) -> dict[str, str]:
-        return {"model": MODEL}
-
-    @classmethod
-    async def list_languages(cls, api_key: str | None = None) -> list[dict]:
-        """OpenAI does not publish a language list, so we reuse Soniox's."""
-        soniox_api_key = os.environ.get("SONIOX_API_KEY")
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(
-                    url=SONIOX_STT_ENDPOINT,
-                    headers={"Authorization": f"Bearer {soniox_api_key}"},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                for model in data["models"]:
-                    if model["id"] == "stt-rt-v5":
-                        return model["languages"]
-                return []
-        except httpx.HTTPError as e:
-            raise ProviderError(message=str(e))
 
     async def connect(self) -> None:
         if self._is_connected:
@@ -72,7 +46,7 @@ class OpenaiProvider(BaseProvider):
             await self.host_queue.put(warning)
 
         try:
-            url = f"{self.service.websocket_url}?model={self.service.model}"
+            url = f"{self.service.websocket_url}?model={MODEL}"
             headers = {"Authorization": f"Bearer {self.api_key}"}
             log.info("connect model=%s target=%s", MODEL, self.params.target_language)
             self._ws = await websockets.connect(url, additional_headers=headers)
@@ -100,26 +74,9 @@ class OpenaiProvider(BaseProvider):
         except Exception as ex:
             raise ProviderError(f"{ex}")
 
-    async def disconnect(self) -> None:
-        if self._stopped:
-            return
-        self._stopped = True
-        self._is_connected = False
-        for t in self._tasks:
-            t.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+    async def _close_upstream(self) -> None:
         if self._ws is not None:
-            try:
-                await self._ws.close()
-            except Exception:
-                pass
-        await self.host_queue.put(None)
-
-    async def send(self, data: bytes) -> None:
-        await self._audio_queue.put(("audio", data))
-
-    async def send_end(self) -> None:
-        await self._audio_queue.put(("end", None))
+            await self._ws.close()
 
     async def _send_loop(self) -> None:
         try:

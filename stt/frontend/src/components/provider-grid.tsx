@@ -1,4 +1,5 @@
 import React from "react";
+import { useLanguageSupport } from "@/hooks/use-language-support";
 import { useUrlSettings } from "@/hooks/use-url-settings";
 import { useComparison } from "@/contexts/comparison-context";
 import { SONIOX_PROVIDER, type ProviderName } from "@/lib/provider-features";
@@ -9,6 +10,8 @@ import { ProviderFeaturesTooltip } from "./provider-features-tooltip";
 import { InfoMessages } from "./info-messages";
 import { AddProviderTile } from "./add-provider-tile";
 import { MobileComparisonCard } from "./mobile-comparison-card";
+import { ModelSelect } from "@/components/model-select";
+import { ProviderOptions } from "@/components/provider-options";
 import { SortableProviderCard } from "./sortable-provider-card";
 import { TranscriptRenderer } from "./transcript-renderer";
 import { RawMessageRenderer } from "./raw-message-renderer";
@@ -33,6 +36,7 @@ const MOBILE_CARD_LIMIT = 2;
 
 export const ProviderGrid = () => {
   const { settings, setSelectedProviders } = useUrlSettings();
+  const { getProvidersForLanguage } = useLanguageSupport();
   const { selectedProviders = [], rawMode } = settings;
 
   const { providerOutputs, rawOutputs, appError, recordingState } =
@@ -59,7 +63,7 @@ export const ProviderGrid = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const [isDragging, setIsDragging] = React.useState(false);
@@ -99,7 +103,7 @@ export const ProviderGrid = () => {
   const availableWidth = Math.max(0, cardsWidth - 2 * CARD_PADDING);
   const maxColumns = Math.max(
     1,
-    Math.floor((availableWidth + CARD_GAP) / (MIN_CARD_WIDTH + CARD_GAP))
+    Math.floor((availableWidth + CARD_GAP) / (MIN_CARD_WIDTH + CARD_GAP)),
   );
   // Even out the rows: minimise row count, then spread cards across them.
   const cappedColumns = Math.min(totalCards, maxColumns);
@@ -124,6 +128,22 @@ export const ProviderGrid = () => {
   const accentOf = (provider: ProviderName) =>
     provider === SONIOX_PROVIDER ? "text-soniox" : undefined;
 
+  // A provider that cannot do the selected language says so in its own message
+  // area, next to the warnings the backend sends, rather than only failing once
+  // recording starts.
+  const languageWarning = (providerName: ProviderName) => {
+    const hint = (settings.languageHints ?? [])[0];
+    if (!hint || getProvidersForLanguage(hint).includes(providerName)) {
+      return [];
+    }
+    return [
+      {
+        message: `This provider does not support ${hint}. Pick another language, or another model for it.`,
+        level: "warning" as const,
+      },
+    ];
+  };
+
   const renderPanelBody = (providerName: ProviderName) => {
     const outputData = providerOutputs[providerName] || {
       statusMessage: "Waiting for data...",
@@ -146,14 +166,13 @@ export const ProviderGrid = () => {
           )}
         </div>
         <InfoMessages
-          infoMessages={
-            outputData.error
-              ? [
-                  ...outputData.infoMessages,
-                  { message: outputData.error, level: "error" },
-                ]
-              : outputData.infoMessages
-          }
+          infoMessages={[
+            ...languageWarning(providerName),
+            ...outputData.infoMessages,
+            ...(outputData.error
+              ? [{ message: outputData.error, level: "error" as const }]
+              : []),
+          ]}
         />
       </div>
     );
@@ -162,7 +181,7 @@ export const ProviderGrid = () => {
   if (isMobile) {
     const shown = selectedProviders.slice(0, MOBILE_CARD_LIMIT);
     const pickableProviders = availableProviders.filter(
-      (p) => !shown.includes(p)
+      (p) => !shown.includes(p),
     );
 
     const handleSwapProvider = (index: number) => (provider: ProviderName) => {
@@ -180,7 +199,20 @@ export const ProviderGrid = () => {
             <MobileComparisonCard
               provider={provider}
               title={nameOf(provider)}
-              subtitle={providerFeatures?.[provider]?.model}
+              subtitle={
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <ModelSelect
+                    provider={provider}
+                    providerFeatures={providerFeatures}
+                    disabled={isBusy}
+                  />
+                  <ProviderOptions
+                    provider={provider}
+                    providerFeatures={providerFeatures}
+                    disabled={isBusy}
+                  />
+                </div>
+              }
               titleTooltip={
                 <ProviderFeaturesTooltip
                   features={getProviderFeaturesList(provider)}
@@ -230,7 +262,7 @@ export const ProviderGrid = () => {
             "flex flex-1 flex-wrap content-stretch items-stretch",
             // Padding lives inside the scroll container so it scrolls with the
             // cards instead of being a static frame around the scroll area.
-            "min-w-0 gap-3 overflow-y-auto p-3"
+            "min-w-0 gap-3 overflow-y-auto p-3",
           )}
         >
           <SortableContext
@@ -246,7 +278,20 @@ export const ProviderGrid = () => {
                   key={providerName}
                   provider={providerName}
                   title={nameOf(providerName)}
-                  subtitle={providerFeatures?.[providerName]?.model}
+                  subtitle={
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <ModelSelect
+                        provider={providerName}
+                        providerFeatures={providerFeatures}
+                        disabled={isBusy}
+                      />
+                      <ProviderOptions
+                        provider={providerName}
+                        providerFeatures={providerFeatures}
+                        disabled={isBusy}
+                      />
+                    </div>
+                  }
                   titleTooltip={
                     <ProviderFeaturesTooltip
                       features={getProviderFeaturesList(providerName)}

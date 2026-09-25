@@ -16,9 +16,14 @@ const TICK_MS = 250;
 type Props = {
   provider: ProviderName;
   providerName: string;
+  disableTooltip?: boolean;
 };
 
-export const ProviderCost = ({ provider, providerName }: Props) => {
+export const ProviderCost = ({
+  provider,
+  providerName,
+  disableTooltip = false,
+}: Props) => {
   const { providerStates, getPlaybackSeconds } = useTts();
   const pricing = getProviderPricing(provider);
 
@@ -36,11 +41,14 @@ export const ProviderCost = ({ provider, providerName }: Props) => {
   const costLabel = `~${formatEstimatedCost(cost)}`;
   const priceLabel = pricing ? formatPricePerHour(pricing.pricePerHour) : "n/a";
 
+  // Swallow pointer-down so dragging cannot be initiated from the price area and
+  // hovering the price can't fight with the card's drag handle.
   const priceBlock = (
     <div
+      onPointerDown={(e) => e.stopPropagation()}
       className={cn(
         "flex flex-col items-end shrink-0 text-right",
-        pricing && "cursor-help",
+        pricing && !disableTooltip && "cursor-help",
       )}
     >
       <span className="text-sm font-semibold tabular-nums leading-tight text-zinc-500 dark:text-zinc-400">
@@ -52,7 +60,7 @@ export const ProviderCost = ({ provider, providerName }: Props) => {
     </div>
   );
 
-  if (!pricing) {
+  if (!pricing || disableTooltip) {
     return priceBlock;
   }
 

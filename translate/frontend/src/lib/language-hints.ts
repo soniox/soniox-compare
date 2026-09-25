@@ -36,7 +36,7 @@ export function sanitizeLanguageHintsBasic(hints: string[]): string[] {
 
 /**
  * Like `sanitizeLanguageHintsBasic`, but also drops codes that are not present
- * in the provided set of valid codes (the loaded Soniox model language list).
+ * in the provided set of valid codes (the source languages the picker offers).
  */
 export function sanitizeLanguageHints(
   hints: string[],

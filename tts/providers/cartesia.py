@@ -8,7 +8,7 @@ async def generate(text: str, language: str) -> AsyncIterator[bytes]:
     api_key = _require_env("CARTESIA_API_KEY")
 
     body: dict = {
-        "model_id": "sonic-3.5",
+        "model_id": "sonic-3.6",
         "transcript": text,
         "voice": {
             "mode": "id",

@@ -62,6 +62,7 @@ class SonioxProvider(BaseProvider):
 
     async def disconnect(self) -> None:
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         if self._sender:
             self._sender.cancel()
         if self._receiver:

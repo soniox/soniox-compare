@@ -5,7 +5,12 @@ from providers.base import (
     BaseProvider,
     ProviderError,
 )
-from providers.config import ProviderConfig, SupportedFeatures, FeatureStatus
+from providers.config import (
+    FeatureStatus,
+    ProviderConfig,
+    ProviderOption,
+    SupportedFeatures,
+)
 from utils import make_part
 from typing import Any
 from urllib.parse import urlencode
@@ -44,18 +49,6 @@ class DeepgramProvider(BaseProvider):
         try:
             self.error = None
             headers = {"Authorization": f"token {self.config.service.api_key}"}
-            # detect_language does not work, although it is documented.
-            # API returns an error.
-            if (
-                self.config.params.enable_language_identification
-                and self.get_available_features().language_identification.state
-                != FeatureStatus.unsupported()
-            ):
-                raise ProviderError(
-                    "Deepgram only supports language identification in batch, not streaming."
-                    "\n[Click here for more info](https://developers.deepgram.com/docs/language-detection)"
-                )
-            self.validate_provider_capabilities("Deepgram")
             language = self.get_lang_cfg()
 
             endpointing: int | str = "false"
@@ -64,24 +57,25 @@ class DeepgramProvider(BaseProvider):
                 if language == "multi":
                     endpointing = 100
 
-            # Note that punctuation does not work.
-            # https://github.com/deepgram/deepgram-js-sdk/issues/386
+            # `smart_format` covers casing, punctuation and number formatting.
+            # `dictation` is not compatible with it: it switches the model to
+            # spoken punctuation commands ("comma" -> ","), which turns normal
+            # casing and punctuation off entirely. `numerals` alongside it
+            # splits years ("2026" -> "20 26").
             url_params_dict = {
                 "language": language,
                 "model": self.config.service.model,
-                "punctuate": "true",
                 "interim_results": "true",
                 "encoding": "linear16",
                 "sample_rate": self.config.common.sample_rate,
                 "diarize": (
                     "true" if self.config.params.enable_speaker_diarization else "false"
                 ),
-                "dictation": "true",
-                "numerals": "true",
-                "smart_format": "true",
-                "measurements": "true",
                 "endpointing": endpointing,
             }
+            if self.config.params.options["smart_format"]:
+                url_params_dict["smart_format"] = "true"
+                url_params_dict["measurements"] = "true"
 
             query_string = urlencode(url_params_dict)
             full_url = f"{self.config.service.websocket_url}?{query_string}"
@@ -98,6 +92,7 @@ class DeepgramProvider(BaseProvider):
 
     async def disconnect(self) -> None:
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         if self._sender:
             self._sender.cancel()
         if self._receiver:
@@ -245,6 +240,9 @@ class DeepgramProvider(BaseProvider):
             name="Deepgram",
             model="nova-3",
             single_multilingual_model=supported,
+            # `language=multi` covers 10 languages, far fewer than the 54 it
+            # accepts as a hint, so keep a hint rather than falling back to it.
+            auto_detect_covers_all_languages=False,
             language_hints=unsupported,
             language_identification=unsupported,  # https://developers.deepgram.com/docs/language-detection
             # https://developers.deepgram.com/docs/diarization
@@ -252,8 +250,8 @@ class DeepgramProvider(BaseProvider):
             customization=supported,  # available in form of Keyterm Prompting: https://developers.deepgram.com/docs/keyterm
             timestamps=supported,
             confidence_scores=supported,
-            # Endpointing can affect the latency, but only when it actually detects
-            # silence in audio stream. We set this to false.
+            # `endpointing` is the silence timeout behind endpoint detection; it
+            # is sent as a fixed value (see connect), never as a user setting.
             real_time_latency_config=unsupported,
             endpoint_detection=FeatureStatus.partial(
                 comment="Endpoint detection based on pre-determined silence duration. "
@@ -261,4 +259,16 @@ class DeepgramProvider(BaseProvider):
                 "the model that decides whether the endpoint has been reached.",
             ),  # https://developers.deepgram.com/docs/endpointing #partial!!!!
             manual_finalization=supported,
+            # Casing, punctuation and number formatting.
+            options={
+                "smart_format": ProviderOption(
+                    default=False,
+                    comment="Casing, punctuation and number formatting; also "
+                    "sends `measurements`. Deepgram leaves it off unless asked.",
+                )
+            },
+            text_formatting=FeatureStatus.supported(
+                comment="`smart_format` adds punctuation, casing and number "
+                "formatting when the setting is on.",
+            ),
         )

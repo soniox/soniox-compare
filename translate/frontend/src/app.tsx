@@ -3,7 +3,6 @@ import { MainLayout } from "@/components/main-layout";
 import { FooterControls } from "@/components/footer-controls";
 import { HeaderControls } from "@/components/header-controls";
 import { ProviderGrid } from "@/components/provider-grid";
-import { ModelDataProvider } from "@/contexts/model-data-context";
 import { FeatureProvider, useFeatures } from "@/contexts/feature-context";
 
 function App() {
@@ -43,15 +42,13 @@ function AppCore() {
   }
 
   return (
-    <ModelDataProvider>
-      <ComparisonProvider>
-        <MainLayout
-          mainContent={<ProviderGrid />}
-          footerContent={<FooterControls />}
-          headerControlsContent={<HeaderControls />}
-        />
-      </ComparisonProvider>
-    </ModelDataProvider>
+    <ComparisonProvider>
+      <MainLayout
+        mainContent={<ProviderGrid />}
+        footerContent={<FooterControls />}
+        headerControlsContent={<HeaderControls />}
+      />
+    </ComparisonProvider>
   );
 }
 

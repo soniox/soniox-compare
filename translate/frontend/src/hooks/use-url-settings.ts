@@ -28,7 +28,6 @@ export interface UrlSettings {
   enableSpeakerDiarization: boolean;
   enableLanguageIdentification: boolean;
   enableEndpointDetection: boolean;
-  selectedFileName: string | null;
 }
 
 const defaultMode: Mode = "text";
@@ -85,7 +84,6 @@ const settingParsers = {
   enableEndpointDetection: parseAsBoolean.withDefault(
     defaultEnableEndpointDetection,
   ),
-  selectedFileName: parseAsString,
 };
 
 export type ParsedUrlSettings = inferParserType<typeof settingParsers>;
@@ -158,8 +156,6 @@ export function useUrlSettings() {
       setSettings({ enableLanguageIdentification: enabled }),
     setEnableEndpointDetection: (enabled: boolean) =>
       setSettings({ enableEndpointDetection: enabled }),
-    setSelectedFileName: (fileName: string | null) =>
-      setSettings({ selectedFileName: fileName }),
     getSettingsAsUrlParams,
   };
 }

@@ -12,7 +12,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ProviderPickerGrid } from "@/components/provider-picker-grid";
-import { useUrlSettings } from "@/hooks/use-url-settings";
+import {
+  MAX_SELECTED_PROVIDERS,
+  useUrlSettings,
+} from "@/hooks/use-url-settings";
 import { useFeatures } from "@/contexts/feature-context";
 import { useComparison } from "@/contexts/comparison-context";
 import type { ProviderName } from "@/lib/provider-features";
@@ -35,16 +38,18 @@ export const AddProviderButton = () => {
   const remainingProviders = availableProviders.filter(
     (p) => !selectedProviders.includes(p)
   );
+  const atCap = selectedProviders.length >= MAX_SELECTED_PROVIDERS;
 
   // Close the modal once everything has been added, and keep it shut while a
   // session is underway (the selection is locked during recording).
   React.useEffect(() => {
-    if (remainingProviders.length === 0 || isBusy) {
+    if (remainingProviders.length === 0 || isBusy || atCap) {
       setOpen(false);
     }
-  }, [remainingProviders.length, isBusy]);
+  }, [remainingProviders.length, isBusy, atCap]);
 
   const handleAdd = (provider: ProviderName) => {
+    if (atCap) return;
     if (!selectedProviders.includes(provider)) {
       setSelectedProviders([...selectedProviders, provider]);
     }
@@ -53,6 +58,23 @@ export const AddProviderButton = () => {
   // Nothing left to add (or selection is locked) — hide the affordance.
   if (remainingProviders.length === 0 || isBusy) {
     return null;
+  }
+
+  // Providers remain pickable at the cap, so say why rather than vanishing.
+  if (atCap) {
+    return (
+      <Button
+        variant="outline"
+        className="shrink-0"
+        disabled
+        title={`Comparing the maximum of ${MAX_SELECTED_PROVIDERS} providers — remove one to add another.`}
+      >
+        <Plus className="h-4 w-4" />
+        <span className="hidden sm:inline">
+          Max {MAX_SELECTED_PROVIDERS} providers
+        </span>
+      </Button>
+    );
   }
 
   return (

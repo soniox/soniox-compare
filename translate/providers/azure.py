@@ -13,57 +13,104 @@ from providers.config import (
     SupportedFeatures,
 )
 from utils import audio_event, data_event, error_message, make_part, session_done_event
-from languages import SUPPORTED_LANGUAGES, get_provider_language, is_language_supported
+from languages import get_source_language, get_target_language
 
 log = logging.getLogger("translate.azure")
 
 MODEL = "azure-speech-translation"
 
 # Azure's real-time translation wants a full source *locale*, not the bare
-# ISO-639-1 code this app passes around. Map the common ones; anything absent
-# falls back to auto-detection across this candidate set.
-_SOURCE_LOCALE = {
-    "en": "en-US",
-    "es": "es-ES",
-    "fr": "fr-FR",
-    "de": "de-DE",
-    "it": "it-IT",
-    "pt": "pt-PT",
-    "nl": "nl-NL",
-    "pl": "pl-PL",
-    "ru": "ru-RU",
-    "uk": "uk-UA",
-    "tr": "tr-TR",
-    "ar": "ar-EG",
-    "hi": "hi-IN",
-    "zh": "zh-CN",
-    "ja": "ja-JP",
-    "ko": "ko-KR",
-}
+# ISO-639-1 code this app passes around; languages.py holds that mapping. With
+# no source language picked at all we fall back to identifying one of these,
+# and anything outside the set is transcribed as whichever member it resembles.
+#
 # At most 4 entries: Azure's at-start language identification
 # (DetectAudioAtStart, the default mode) rejects larger candidate sets by
 # closing the connection with code 1007.
 _AUTODETECT_CANDIDATES = ["en-US", "es-ES", "fr-FR", "de-DE"]
 
-# A neural voice per target language, so s2s can synthesize. Translation to text
-# works for any target below; only targets with a voice here can also speak.
+# The neural voice each target language is spoken with, so s2s can synthesize.
+# Translation to text works for any target in languages.py; only targets with
+# a voice here can also speak. A voice from the wrong locale returns 200 with
+# a fraction of a second of silence rather than an error, so these are the
+# vendor's exact short names.
 _TARGET_VOICE = {
+    "af": "af-ZA-AdriNeural",
+    "am": "am-ET-MekdesNeural",
     "ar": "ar-EG-SalmaNeural",
+    "as": "as-IN-YashicaNeural",
+    "az": "az-AZ-BanuNeural",
+    "bg": "bg-BG-KalinaNeural",
+    "bn": "bn-IN-TanishaaNeural",
+    "bs": "bs-BA-VesnaNeural",
+    "ca": "ca-ES-AlbaNeural",
+    "cs": "cs-CZ-VlastaNeural",
+    "cy": "cy-GB-NiaNeural",
+    "da": "da-DK-ChristelNeural",
     "de": "de-DE-KatjaNeural",
+    "el": "el-GR-AthinaNeural",
     "en": "en-US-JennyNeural",
     "es": "es-ES-ElviraNeural",
+    "et": "et-EE-AnuNeural",
+    "eu": "eu-ES-AinhoaNeural",
+    "fa": "fa-IR-DilaraNeural",
+    "fi": "fi-FI-NooraNeural",
     "fr": "fr-FR-DeniseNeural",
+    "ga": "ga-IE-OrlaNeural",
+    "gl": "gl-ES-SabelaNeural",
+    "gu": "gu-IN-DhwaniNeural",
+    "he": "he-IL-HilaNeural",
     "hi": "hi-IN-SwaraNeural",
+    "hr": "hr-HR-GabrijelaNeural",
+    "hu": "hu-HU-NoemiNeural",
+    "hy": "hy-AM-AnahitNeural",
+    "id": "id-ID-GadisNeural",
+    "is": "is-IS-GudrunNeural",
     "it": "it-IT-ElsaNeural",
     "ja": "ja-JP-NanamiNeural",
+    "kk": "kk-KZ-AigulNeural",
+    "km": "km-KH-SreymomNeural",
+    "kn": "kn-IN-SapnaNeural",
     "ko": "ko-KR-SunHiNeural",
+    "lo": "lo-LA-KeomanyNeural",
+    "lt": "lt-LT-OnaNeural",
+    "lv": "lv-LV-EveritaNeural",
+    "mk": "mk-MK-MarijaNeural",
+    "ml": "ml-IN-SobhanaNeural",
+    "mn": "mn-MN-YesuiNeural",
+    "mr": "mr-IN-AarohiNeural",
+    "ms": "ms-MY-YasminNeural",
+    "mt": "mt-MT-GraceNeural",
+    "my": "my-MM-NilarNeural",
+    "ne": "ne-NP-HemkalaNeural",
     "nl": "nl-NL-ColetteNeural",
+    "no": "nb-NO-IselinNeural",
+    "pa": "pa-IN-VaaniNeural",
     "pl": "pl-PL-ZofiaNeural",
+    "ps": "ps-AF-LatifaNeural",
     "pt": "pt-PT-RaquelNeural",
+    "ro": "ro-RO-AlinaNeural",
     "ru": "ru-RU-SvetlanaNeural",
+    "si": "si-LK-ThiliniNeural",
+    "sk": "sk-SK-ViktoriaNeural",
+    "sl": "sl-SI-PetraNeural",
+    "so": "so-SO-UbaxNeural",
+    "sq": "sq-AL-AnilaNeural",
+    "sr": "sr-RS-SophieNeural",
+    "sv": "sv-SE-HilleviNeural",
+    "sw": "sw-TZ-RehemaNeural",
+    "ta": "ta-SG-VenbaNeural",
+    "te": "te-IN-ShrutiNeural",
+    "th": "th-TH-AcharaNeural",
+    "tl": "fil-PH-BlessicaNeural",
     "tr": "tr-TR-EmelNeural",
     "uk": "uk-UA-PolinaNeural",
+    "ur": "ur-PK-UzmaNeural",
+    "uz": "uz-UZ-MadinaNeural",
+    "vi": "vi-VN-HoaiMyNeural",
+    "yue": "yue-CN-XiaoMinNeural",
     "zh": "zh-CN-XiaoxiaoNeural",
+    "zu": "zu-ZA-ThandoNeural",
 }
 
 
@@ -88,26 +135,11 @@ class AzureProvider(BaseProvider):
         self._recognizer: speechsdk.translation.TranslationRecognizer | None = None
         self._source_language: str | None = None
         # Azure keys translations by the code we register; keep the exact casing.
-        self._target_key = (
-            get_provider_language(config.params.target_language, "azure")
-            or config.params.target_language
-        )
+        self._target_key = get_target_language(config.params.target_language, "azure")
         # True rate of the synthesized audio, parsed from the WAV header Azure
         # puts on each utterance's first chunk (see _on_synthesizing). Azure
         # delivers 16 kHz regardless of the requested output format.
         self._synth_sample_rate = 16000
-
-    @classmethod
-    def model_info(cls) -> dict[str, str]:
-        return {"model": MODEL}
-
-    @classmethod
-    async def list_languages(cls, api_key: str | None = None) -> list[dict]:
-        return [
-            {"code": c}
-            for c in SUPPORTED_LANGUAGES
-            if is_language_supported(c, "azure")
-        ]
 
     async def connect(self) -> None:
         if self._is_connected:
@@ -161,7 +193,7 @@ class AzureProvider(BaseProvider):
             # Azure auto-detect across a small candidate set.
             auto_detect = None
             source_locale = (
-                _SOURCE_LOCALE.get(self._source_language)
+                get_source_language(self._source_language, "azure")
                 if self._source_language
                 else None
             )
@@ -305,23 +337,12 @@ class AzureProvider(BaseProvider):
         if self._push_stream is not None:
             self._push_stream.close()
 
-    async def disconnect(self) -> None:
-        if self._stopped:
-            return
-        self._stopped = True
-        self._is_connected = False
-        for t in self._tasks:
-            t.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+    async def _close_upstream(self) -> None:
         if self._recognizer is not None and self._loop is not None:
-            try:
-                await self._loop.run_in_executor(
-                    None,
-                    lambda: self._recognizer.stop_continuous_recognition_async().get(),
-                )
-            except Exception:
-                pass
-        await self.host_queue.put(None)
+            await self._loop.run_in_executor(
+                None,
+                lambda: self._recognizer.stop_continuous_recognition_async().get(),
+            )
 
     @staticmethod
     def get_available_features() -> SupportedFeatures:

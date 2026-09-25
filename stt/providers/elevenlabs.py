@@ -12,6 +12,7 @@ from elevenlabs import (
 )
 from elevenlabs.realtime.scribe import ScribeRealtime
 
+from config import get_language_mapping
 from providers.base import (
     BaseProvider,
     ProviderError,
@@ -95,7 +96,9 @@ class ElevenlabsProvider(BaseProvider):
             # (empty list) when more than one language is requested.
             language_hints = self.config.params.language_hints
             if len(language_hints) == 1:
-                options["language_code"] = language_hints[0]
+                mapped = get_language_mapping(self.name).get(language_hints[0])
+                if mapped is not None:
+                    options["language_code"] = mapped
 
             scribe = _LanguageDetectionScribe(
                 api_key=self.config.service.api_key,
@@ -121,7 +124,7 @@ class ElevenlabsProvider(BaseProvider):
         connection.on(RealtimeEvents.CLOSE, self._on_close)
 
     async def disconnect(self) -> None:
-        self._is_connected = False
+        self._end()
         if self.connection:
             try:
                 await self.connection.close()
@@ -272,10 +275,17 @@ class ElevenlabsProvider(BaseProvider):
                 "error_message": str(message),
             }
         )
-        self._is_connected = False
+        self._end()
 
     def _on_close(self) -> None:
-        self._is_connected = False
+        self._end()
+
+    def _end(self) -> None:
+        # The SDK fires CLOSE after an error and after our own close(), so this
+        # runs more than once per session; only the first push ends the card.
+        if self._is_connected:
+            self._is_connected = False
+            self.host_queue.put_nowait(None)
 
     @staticmethod
     def get_available_features():
@@ -300,6 +310,10 @@ class ElevenlabsProvider(BaseProvider):
                 comment="VAD commit behaviour is configurable "
                 "(vad_silence_threshold_secs, vad_threshold, etc.).",
             ),
-            endpoint_detection=supported,
+            endpoint_detection=FeatureStatus.partial(
+                comment="Each transcript is committed when the server VAD "
+                "detects a pause in speech, not by context-aware turn "
+                "detection.",
+            ),
             manual_finalization=supported,
         )

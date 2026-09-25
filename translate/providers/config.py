@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -88,18 +88,12 @@ TTS_OUTPUT_SAMPLE_RATE = 24000
 
 
 class ServiceConfig(BaseModel):
-    # Not all parameters are used by all services.
+    # Not all parameters are used by all services. Model ids live on each
+    # provider module, since the feature matrix needs them at class level.
     api_key: str = ""
     websocket_url: str = ""
-    model: str = ""
     tts_websocket_url: str = ""
-    tts_model: str = ""
     region: str = ""
-    project_id: str = ""
-    recognizer_id: str = ""
-    # Parsed service-account key (Google). Passed directly to the SDK so no
-    # credentials file needs to exist on disk in deployment.
-    credentials_info: Optional[dict[str, Any]] = None
 
 
 class ProviderParams(BaseModel):

@@ -5,13 +5,13 @@ description = "STT providers comparison tool"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "aiohttp>=3.12.9",
     "assemblyai>=0.64.21",
     "azure-cognitiveservices-speech>=1.44.0",
     "dotenv>=0.9.9",
     "elevenlabs>=2.53.0",
     "fastapi[standard]>=0.115.12",
     "google-genai>=2.20.0",
+    "httpx>=0.28.1",
     "jinja2>=3.1.6",
     "numpy>=2.4.6",
     "python-dotenv>=1.1.0",

@@ -114,7 +114,15 @@ export const ChooseAudioFileDialog = ({ disabled }: { disabled?: boolean }) => {
     clearAudio();
     setAudio(url, name);
     if (defaults) {
-      setSettings(defaults);
+      // A sample's defaults are partial, so reset the rest first — otherwise a
+      // flag switched on by the previously selected sample stays on.
+      setSettings({
+        languageHints: [],
+        enableSpeakerDiarization: false,
+        enableLanguageIdentification: false,
+        enableEndpointDetection: false,
+        ...defaults,
+      });
     }
     setIsFileDialogOpen(false);
     setIsProcessingFile(false);

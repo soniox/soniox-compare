@@ -12,9 +12,10 @@ from azure.cognitiveservices.speech.transcription import ConversationTranscripti
 from azure.cognitiveservices.speech.speech import RecognitionResult
 
 from providers.config import (
-    ProviderConfig,
-    SupportedFeatures,
     FeatureStatus,
+    ProviderConfig,
+    ProviderOption,
+    SupportedFeatures,
 )
 from utils import await_callback, make_part
 from typing import Any, Optional
@@ -66,8 +67,14 @@ class AzureProvider(BaseProvider):
             samples_per_second=16000, bits_per_sample=16, channels=1
         )
         self.audio_stream = speechsdk.audio.PushAudioInputStream(audio_format)
+        # ConversationTranscriber is Azure's diarizing recognizer, and Azure
+        # bills its "enhanced feature" add-on for every session that uses it.
+        # With diarization off we use the plain recognizer instead, so the
+        # session is not charged for a feature nobody asked for.
         self.recognizer: (
-            speechsdk.transcription.ConversationTranscriber | None
+            speechsdk.transcription.ConversationTranscriber
+            | speechsdk.SpeechRecognizer
+            | None
         ) = None
 
     def _get_speech_config(self):
@@ -134,25 +141,36 @@ class AzureProvider(BaseProvider):
             await self.host_queue.put(warning)
 
         try:
-            self._validate_provider_capabilities()
             # Clear errors when trying to start new connection.
             self.error = None
             speech_config = self._get_speech_config()
             audio_config = speechsdk.AudioConfig(stream=self.audio_stream)
             auto_detect_lang_cfg = self._get_autodetect_lang_cfg()
 
-            self.recognizer = speechsdk.transcription.ConversationTranscriber(
-                speech_config=speech_config,
-                audio_config=audio_config,
-                language=None,
-                source_language_config=None,
-                auto_detect_source_language_config=auto_detect_lang_cfg,
-            )
-
-            self.recognizer.transcribing.connect(self._on_transcribing)
-            self.recognizer.transcribed.connect(self._on_transcribed)
-            self.recognizer.canceled.connect(self._on_canceled)
-            self.recognizer.start_transcribing_async()
+            if self.config.params.enable_speaker_diarization:
+                self.recognizer = speechsdk.transcription.ConversationTranscriber(
+                    speech_config=speech_config,
+                    audio_config=audio_config,
+                    language=None,
+                    source_language_config=None,
+                    auto_detect_source_language_config=auto_detect_lang_cfg,
+                )
+                self.recognizer.transcribing.connect(self._on_transcribing)
+                self.recognizer.transcribed.connect(self._on_transcribed)
+                self.recognizer.canceled.connect(self._on_canceled)
+                self.recognizer.start_transcribing_async()
+            else:
+                self.recognizer = speechsdk.SpeechRecognizer(
+                    speech_config=speech_config,
+                    audio_config=audio_config,
+                    auto_detect_source_language_config=auto_detect_lang_cfg,
+                )
+                # Same handlers: the events carry the same result shape, only
+                # the signal names and the start/stop calls differ.
+                self.recognizer.recognizing.connect(self._on_transcribing)
+                self.recognizer.recognized.connect(self._on_transcribed)
+                self.recognizer.canceled.connect(self._on_canceled)
+                self.recognizer.start_continuous_recognition_async()
 
             self._loop = asyncio.get_running_loop()
             self._is_connected = True
@@ -164,6 +182,7 @@ class AzureProvider(BaseProvider):
 
     async def disconnect(self) -> None:
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         if self._sender_task:
             self._sender_task.cancel()
         if self.audio_stream:
@@ -174,9 +193,12 @@ class AzureProvider(BaseProvider):
                 pass
         if self.recognizer:
             try:
-                await await_callback(
-                    self.recognizer.stop_transcribing_async, timeout=5
-                )
+                stop = getattr(
+                    self.recognizer,
+                    "stop_transcribing_async",
+                    None,
+                ) or self.recognizer.stop_continuous_recognition_async
+                await await_callback(stop, timeout=5)
             except Exception as ex:
                 self.error = ex
                 pass
@@ -273,7 +295,12 @@ class AzureProvider(BaseProvider):
             try:
                 result_dict = json.loads(evt.result.json)
                 if "NBest" in result_dict and result_dict["NBest"]:
-                    confidence = result_dict["NBest"][0].get("Confidence")
+                    best = result_dict["NBest"][0]
+                    confidence = best.get("Confidence")
+                    # Both forms arrive on every result; `result.text` is
+                    # Display, `Lexical` is the raw words.
+                    if not self.config.params.options["display_form"]:
+                        text = best.get("Lexical") or text
 
                 start_ms, end_ms = _get_start_end_ms(evt.result)
                 speaker = None
@@ -338,9 +365,6 @@ class AzureProvider(BaseProvider):
         )
         await self.disconnect()
 
-    def _validate_provider_capabilities(self) -> None:
-        super().validate_provider_capabilities("Azure")
-
     @staticmethod
     def get_available_features():
         supported = FeatureStatus.supported()
@@ -348,7 +372,7 @@ class AzureProvider(BaseProvider):
         partial = FeatureStatus.partial()
         return SupportedFeatures(
             name="Azure",
-            model="en-US-Conversation",
+            model="Universal Language Model (base)",
             single_multilingual_model=unsupported,
             language_hints=unsupported,
             # Azure language identification accepts up to 10 candidate languages.
@@ -360,8 +384,26 @@ class AzureProvider(BaseProvider):
             customization=supported,  # https://learn.microsoft.com/en-us/azure/ai-services/speech-service/improve-accuracy-phrase-list?tabs=terminal&pivots=programming-language-csharp # noqa
             timestamps=supported,  # ADDED https://learn.microsoft.com/en-us/azure/ai-services/speech-service/get-speech-recognition-results?pivots=programming-language-csharp # noqa
             confidence_scores=supported,  # ADDED https://learn.microsoft.com/en-us/azure/ai-services/speech-service/get-speech-recognition-results?pivots=programming-language-csharp # noqa
+            # Only Speech_SegmentationStrategy=Semantic is set (that is the
+            # endpoint detection above); no silence timeout property is sent.
             real_time_latency_config=supported,  # Speech_SegmentationSilenceTimeoutMs and SpeechServiceConnection_InitialSilenceTimeoutMs, https://learn.microsoft.com/en-us/dotnet/api/microsoft.cognitiveservices.speech.propertyid?view=azure-dotnet # noqa
             # https://learn.microsoft.com/en-us/azure/ai-services/speech-service/how-to-recognize-speech?pivots=programming-language-csharp # noqa
+            options={
+                # Not an Azure request parameter: every result carries both
+                # forms and this picks which one we render. Off by default like
+                # the other formatting options, so every card starts from raw
+                # words — Azure hands back formatted text where Deepgram hands
+                # back raw, so "what the vendor gives unasked" is not a
+                # comparable baseline.
+                "display_form": ProviderOption(
+                    default=False,
+                    comment="Renders Azure's Display form, punctuated and cased. "
+                    "Off shows Lexical: the same words with neither.",
+                ),
+            },
+            text_formatting=FeatureStatus.supported(
+                comment="The service returns both a punctuated Display form and an unformatted Lexical one; the setting picks between them.",
+            ),
             endpoint_detection=supported,
             manual_finalization=unsupported,
         )

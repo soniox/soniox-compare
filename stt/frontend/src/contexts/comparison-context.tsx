@@ -12,6 +12,7 @@ import {
 } from "../lib/provider-features";
 import { MockWebSocket } from "../lib/mock-websocket";
 import { activeProviders, useUrlSettings } from "../hooks/use-url-settings";
+import { notifyParentDemoStarted } from "../lib/embed";
 
 const USE_MOCK_DATA = false;
 
@@ -614,6 +615,7 @@ export const ComparisonProvider = ({
 
       wsRef.current.onopen = () => {
         setRecordingState("recording");
+        notifyParentDemoStarted();
         setProviderOutputs((prev) => {
           const newState = { ...prev };
           currentProviders.forEach(

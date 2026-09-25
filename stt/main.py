@@ -1,9 +1,10 @@
 import asyncio
+import json
 import logging
 import os
 from typing import Dict, List, Any
 
-import aiohttp
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request, WebSocket
 from fastapi.responses import PlainTextResponse, FileResponse
@@ -13,29 +14,35 @@ from config import (
     get_provider_config,
     get_soniox_service_config,
     get_language_support,
+    get_supported_languages,
+    unsupported_language,
 )
 from providers.base import BaseProvider
 from utils import error_message
 
 from providers.soniox import SonioxProvider
 from providers.deepgram import DeepgramProvider
-from providers.assembly import AssemblyProvider
+from providers.assembly import AssemblyProvider, AssemblyStreamingProvider
 from providers.google import GoogleProvider
 from providers.azure import AzureProvider
 from providers.speechmatics import SpeechmaticsProvider
-from providers.openai import OpenaiProvider
+from providers.openai import OpenaiProvider, OpenaiWhisperProvider
 from providers.cartesia import CartesiaProvider
 from providers.elevenlabs import ElevenlabsProvider
 from providers.meta import MetaProvider
 from providers.smallest import SmallestProvider
+from providers.inworld import InworldProvider
+from providers.xai import XaiProvider
 
 from providers.config import ProviderParams
 
 PROVIDER_MAP: Dict[str, type[BaseProvider]] = {
     "soniox": SonioxProvider,
     "openai": OpenaiProvider,
+    "openai:whisper": OpenaiWhisperProvider,
     "deepgram": DeepgramProvider,
     "assembly": AssemblyProvider,
+    "assembly:streaming": AssemblyStreamingProvider,
     "google": GoogleProvider,
     "azure": AzureProvider,
     "speechmatics": SpeechmaticsProvider,
@@ -43,6 +50,8 @@ PROVIDER_MAP: Dict[str, type[BaseProvider]] = {
     "elevenlabs": ElevenlabsProvider,
     "meta": MetaProvider,
     "smallest": SmallestProvider,
+    "xai": XaiProvider,
+    "inworld": InworldProvider,
 }
 
 load_dotenv()
@@ -97,13 +106,19 @@ async def compare_websocket(
         default="", max_length=1000, description="Context for transcription"
     ),
     enable_speaker_diarization: bool = Query(
-        default=False, description="Enable speaker diarization"
+        default=True, description="Enable speaker diarization"
     ),
     enable_language_identification: bool = Query(
-        default=False, description="Enable language identification"
+        default=True, description="Enable language identification"
     ),
     enable_endpoint_detection: bool = Query(
         default=False, description="Enable endpoint detection"
+    ),
+    options: str = Query(
+        default="{}",
+        max_length=4000,
+        description='Per-provider option overrides, JSON keyed by provider: '
+        '{"xai": {"filler_words": false}}',
     ),
 ):
     await websocket.accept()
@@ -112,6 +127,15 @@ async def compare_websocket(
     receive_tasks = {}
 
     try:
+        # A malformed blob from a hand-edited URL falls back to the declared
+        # defaults rather than killing the session for every card.
+        try:
+            option_overrides = json.loads(options)
+        except json.JSONDecodeError:
+            option_overrides = {}
+        if not isinstance(option_overrides, dict):
+            option_overrides = {}
+
         provider_params = ProviderParams(
             language_hints=language_hints,
             context=context,
@@ -126,6 +150,16 @@ async def compare_websocket(
                 provider_class = PROVIDER_MAP.get(name)
                 if provider_class is None:
                     raise ValueError(f"Unknown provider: {name}")
+
+                missing = unsupported_language(name, language_hints)
+                if missing is not None:
+                    raise ValueError(f"Language {missing} is not supported by {name}")
+
+                per_provider = option_overrides.get(name)
+                if isinstance(per_provider, dict):
+                    provider_params.options = per_provider
+                else:
+                    provider_params.options = {}
 
                 provider_config = get_provider_config(
                     name=name,
@@ -144,18 +178,10 @@ async def compare_websocket(
 
         async def forward_to_client(provider_name, provider_instance):
             try:
-                while True:
-                    messages = await provider_instance.receive()
-                    for message in messages:
-                        if message is not None:
-                            assert provider_name, "Provider name must be set"
-                            message["provider"] = provider_name
-                            await websocket.send_json(message)
-                        else:
-                            log.warning(
-                                "Received a None message from %s. Skipping.",
-                                provider_name,
-                            )
+                while provider_instance.is_connected():
+                    for message in await provider_instance.receive():
+                        message["provider"] = provider_name
+                        await websocket.send_json(message)
             except Exception as e:
                 await websocket.send_json(
                     error_message(provider=provider_name, message=f"Receive error: {e}")
@@ -256,31 +282,36 @@ async def get_providers():
     return all_features
 
 
-@app.get("/compare/api/language-support", response_model=Dict[str, List[str]])
+@app.get("/compare/api/language-support", response_model=Dict[str, Any])
 async def get_providers_language_support():
-    """Per-provider lists of supported input-language codes (ISO-639-1).
+    """Input-language codes (ISO-639-1) for the language selector.
 
-    Used by the language selector to show which providers support each language.
-    Soniox is omitted because the rendered language list is its own model list.
+    `all_languages` is what the selector offers: the union across providers.
+    `providers` lists each provider's own codes, so the selector can show
+    which providers support each language. Every provider is listed, Soniox
+    included.
     """
-    return get_language_support()
+    return {
+        "all_languages": get_supported_languages(),
+        "providers": get_language_support(PROVIDER_MAP),
+    }
 
 
 @app.get("/compare/api/soniox-model", response_model=Dict[str, Any])
 async def get_soniox_model():
     soniox_service_config = get_soniox_service_config()
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
             "https://api.soniox.com/v1/models",
             headers={"Authorization": f"Bearer {soniox_service_config.api_key}"},
-        ) as resp:
-            resp.raise_for_status()
-            models = await resp.json()
-            for model in models["models"]:
-                if model["id"] == "stt-rt-v5":
-                    return model
-            raise Exception("Model not found")
+        )
+        resp.raise_for_status()
+        models = resp.json()
+        for model in models["models"]:
+            if model["id"] == "stt-rt-v5":
+                return model
+        raise Exception("Model not found")
 
 
 @app.get("/.well-known/health/soniox-compare", response_class=PlainTextResponse)

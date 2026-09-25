@@ -6,21 +6,25 @@ Real-time speech-to-text comparison. Stream mic or file audio to many STT provid
 
 ## Providers
 
-Eleven providers, registered in `PROVIDER_MAP` (`main.py`). Model IDs are the wire values from `config.py` — except Google, whose model id lives in its provider module because the Gemini Live session and the feature matrix must agree on it. Each provider module reports its model in `get_available_features()`.
+Thirteen providers under fifteen keys in `PROVIDER_MAP` (`main.py`) — OpenAI and AssemblyAI each expose a second model as its own `provider:model` key, which the frontend groups back under one logo. Model IDs are the wire values from `config.py` — except Google, whose model id lives in its provider module because the Gemini Live session and the feature matrix must agree on it. Each provider module reports its model in `get_available_features()`.
 
 | Provider     | Key           | Model (wire id)     |
 | ------------ | ------------- | ------------------- |
 | Soniox       | `soniox`      | `stt-rt-v5`         |
 | OpenAI       | `openai`      | `gpt-4o-transcribe` |
+| OpenAI       | `openai:whisper` | `gpt-realtime-whisper` (second model) |
 | Deepgram     | `deepgram`    | `nova-3`            |
 | AssemblyAI   | `assembly`    | `universal-3-5-pro` |
+| AssemblyAI   | `assembly:streaming` | `universal-streaming-multilingual` (second model) |
 | Google       | `google`      | `gemini-3.5-transcribe-live` (Gemini Live API; model id owned by `providers/google.py`) |
-| Azure        | `azure`       | `en-US-Conversation` (Speech SDK; region-based, no model id) |
+| Azure        | `azure`       | Universal Language Model (base) (Speech SDK; region-based, no model id) |
 | Speechmatics | `speechmatics`| `enhanced`          |
 | Cartesia     | `cartesia`    | `ink-2`             |
 | ElevenLabs   | `elevenlabs`  | `scribe_v2_realtime`|
 | Meta         | `meta`        | `muse-voice-transcribe-1.0` |
 | Smallest AI  | `smallest`    | `pulse`             |
+| xAI          | `xai`         | `grok-voice-transcribe-2.0`            |
+| Inworld      | `inworld`     | `inworld/inworld-stt-1` |
 
 ## Endpoints
 
@@ -30,7 +34,7 @@ All under `/compare/api` except the operational `/.well-known/…` slugs.
 | ------ | ---- | ------- |
 | `WS`  | `/compare/api/compare-websocket` | Live session. Query: `providers[]`, `language_hints[]`, `context`, `enable_speaker_diarization`, `enable_language_identification`, `enable_endpoint_detection` |
 | `GET` | `/compare/api/providers-features` | Per-provider capability matrix (`get_available_features()`) |
-| `GET` | `/compare/api/language-support`   | Per-provider supported input-language codes (Soniox omitted — it covers the whole rendered list) |
+| `GET` | `/compare/api/language-support`   | `{"all_languages": [...], "providers": {...}}` — the union the selector offers, plus each provider's supported input-language codes (every provider key, Soniox included) |
 | `GET` | `/compare/api/soniox-model`       | Soniox `stt-rt-v5` model object; its `languages` drive the source-language list the UI renders |
 | `GET` | `/.well-known/health/soniox-compare`  | Health check → `ok` |
 | `GET` | `/.well-known/version/soniox-compare` | `VERSION` env var |
@@ -38,7 +42,7 @@ All under `/compare/api` except the operational `/.well-known/…` slugs.
 ## App-specific behavior
 
 - **Streaming transcripts.** Each provider emits normalized `{"type": "data", "provider": …, "parts": [make_part(...)]}` events (final + non-final tokens); the UI renders one live column per provider. Event builders live in `utils.py` (`make_part`, `error_message`, `info_message`).
-- **Language hints & features.** The WS query flags (`language_hints`, `context`, diarization, language identification, endpoint detection) are passed to every provider as `ProviderParams`. Each provider advertises which it actually supports via `get_available_features()` (served at `/providers-features`) — e.g. Soniox supports the full set; OpenAI has no language hints/diarization; Cartesia (`ink-2`) is English-only; Speechmatics is single-language (no in-session auto-detect); Azure language identification is limited to a candidate set (≤10); Google turns `context` into `custom_vocabulary` biasing phrases and is pinned to the model's `VERBATIM` mode, since `SMART` would rewrite the transcript (dropping filler words, reformatting lists) and make the side-by-side comparison unfair; Smallest AI (Pulse) has no single universal auto-detect mode, only regional aggregators (`north_indic`, `multi-asian`, `multi-south-indic`), so a single language hint is used instead; it also turns `context` into `keywords` boosting terms and enables punctuation formatting + inverse text normalization (`format`, `itn_normalize`) for parity with the other providers' comparable formatting flags. Meta transcribes in a single mode per session (`PUSH_TO_TALK`, `ENDPOINTING` or `DIARIZATION`), so diarization and endpoint detection are mutually exclusive there: endpoint detection wins and the card warns that diarization was disabled.
+- **Language hints & features.** The WS query flags (`language_hints`, `context`, diarization, language identification, endpoint detection) are passed to every provider as `ProviderParams`. Each provider advertises which it actually supports via `get_available_features()` (served at `/providers-features`) — e.g. Soniox supports the full set; OpenAI has no language hints/diarization; Cartesia (`ink-2`) is English-only; Speechmatics is single-language (no in-session auto-detect); Azure language identification is limited to a candidate set (≤10); Google turns `context` into `custom_vocabulary` biasing phrases and is pinned to the model's `VERBATIM` mode, since `SMART` would rewrite the transcript (dropping filler words, reformatting lists) and make the side-by-side comparison unfair; Smallest AI (Pulse) has no single universal auto-detect mode, only regional aggregators (`north_indic`, `multi-asian`, `multi-south-indic`), so a single language hint is used instead; it also turns `context` into `keywords` boosting terms and enables punctuation formatting + inverse text normalization (`format`, `itn_normalize`) for parity with the other providers' comparable formatting flags. xAI's `language` parameter only switches on inverse text normalization — the model transcribes every supported language regardless — so its language hint is advertised as partial; the streaming events do carry a detected language, reported once per utterance. Meta transcribes in a single mode per session (`PUSH_TO_TALK`, `ENDPOINTING` or `DIARIZATION`), so diarization and endpoint detection are mutually exclusive there: endpoint detection wins and the card warns that diarization was disabled.
 - **Source-language list = Soniox's model.** The selectable input languages come from Soniox's `stt-rt-v5` model (`/soniox-model`); `/language-support` then marks which other providers cover each of those languages. Per-provider input-language support lives in `languages.py` (`LANGUAGE_MAP`, keyed by Soniox code → the code each provider's API expects).
 - **Resampling.** `providers/audio.py` holds a `soxr` streaming resampler for providers that need a fixed input sample rate.
 - **Session guards.** `MAX_SESSION_SECONDS = 5 min` and `MAX_STREAMED_AUDIO_BYTES = 12 MB` (decoded PCM) end a session with a message on every card.
@@ -60,6 +64,8 @@ Add to `stt/.env` (copy from `.env.example`). A missing key disables only that p
 | `GOOGLE_API_KEY`        | Google — a Gemini Developer API key (Google AI Studio), not a Vertex service account |
 | `META_API_KEY`          | Meta — a Model API key from the Meta Model API dashboard |
 | `SMALLEST_API_KEY`      | Smallest AI |
+| `XAI_API_KEY`           | xAI |
+| `INWORLD_API_KEY`       | Inworld — a Standard key (the Realtime-only key has no STT scope) |
 
 Also reads optional `VERSION` and `LOG_LEVEL`.
 

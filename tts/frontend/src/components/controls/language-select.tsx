@@ -20,6 +20,7 @@ import { getLanguageName } from "@/lib/languages";
 import {
   PROVIDERS,
   PROVIDER_DISPLAY_NAMES,
+  groupOf,
   getProviderIcon,
   type ProviderName,
 } from "@/lib/providers";
@@ -179,12 +180,12 @@ const ProviderLogos = ({ providers }: { providers: ProviderName[] }) => {
       {visible.map((provider) => (
         <span
           key={provider}
-          title={PROVIDER_DISPLAY_NAMES[provider]}
+          title={PROVIDER_DISPLAY_NAMES[groupOf(provider)]}
           className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-white p-[3px]"
         >
           <img
             src={getProviderIcon(provider)}
-            alt={PROVIDER_DISPLAY_NAMES[provider]}
+            alt={PROVIDER_DISPLAY_NAMES[groupOf(provider)]}
             loading="lazy"
             className="h-full w-full object-contain"
           />

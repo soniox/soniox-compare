@@ -1,17 +1,28 @@
 import asyncio
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, ClassVar
-from providers.config import ProviderConfig, SupportedFeatures, FeatureState
+from providers.config import (
+    FeatureState,
+    ProviderConfig,
+    ProviderError,  # re-exported: providers import it from here
+    SupportedFeatures,
+)
 from utils import info_message, raw_message
 
 # How long receive() blocks for a first event before returning empty, so the
 # per-provider forward loop in main.py stays responsive to cancellation.
 RECEIVE_TIMEOUT_SEC = 0.1
 
+# Cap on a string-valued provider option before it is forwarded to a vendor.
+MAX_OPTION_STR_LEN = 500
+
 
 class BaseProvider(ABC):
-    """
-    Abstract base class for all STT providers.
+    """Abstract base class for all STT providers.
+
+    Providers push normalized events (see utils.py) onto `host_queue`, which
+    `main.py` drains via `receive()` and forwards to the browser. A provider
+    signals it has nothing left to say by pushing `None`.
     """
 
     name: ClassVar[str]  # subclasses override: name = "soniox" etc.
@@ -20,7 +31,7 @@ class BaseProvider(ABC):
         self._is_connected = False
         self.error: Exception | None = None
         self.config: ProviderConfig = config
-        self.host_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+        self.host_queue: asyncio.Queue[Dict[str, Any] | None] = asyncio.Queue()
 
     def is_connected(self) -> bool:
         return self._is_connected
@@ -74,17 +85,26 @@ class BaseProvider(ABC):
         pass
 
     async def receive(self) -> List[Dict[str, Any]]:
-        """Drain everything currently queued, blocking briefly for the first
-        item so the caller stays responsive to cancellation. A provider pushes
-        normalized events (see utils.py) onto `host_queue`."""
+        """Drain everything currently queued, blocking briefly for the first item.
+
+        A `None` in the queue is the provider's end-of-life sentinel: mark the
+        provider disconnected and return whatever preceded it.
+        """
         try:
             first = await asyncio.wait_for(self.host_queue.get(), RECEIVE_TIMEOUT_SEC)
         except asyncio.TimeoutError:
             return []
-        items = [first]
-        while not self.host_queue.empty():
-            items.append(self.host_queue.get_nowait())
-        return items
+
+        items: List[Dict[str, Any]] = []
+        item: Dict[str, Any] | None = first
+        while True:
+            if item is None:
+                self._is_connected = False
+                return items
+            items.append(item)
+            if self.host_queue.empty():
+                return items
+            item = self.host_queue.get_nowait()
 
     @staticmethod
     @abstractmethod
@@ -93,16 +113,6 @@ class BaseProvider(ABC):
         Get supported features for each model.
         """
         pass
-
-
-class ProviderError(Exception):
-    """Base error for all provider-related exceptions."""
-
-    def __init__(self, message, code=None, details=None):
-        self.message = message
-        self.code = code
-        self.details = details
-        super().__init__(message)
 
 
 def validate_capabilities(
@@ -123,6 +133,7 @@ def validate_capabilities(
     if max_hints is not None and len(hints) > max_hints:
         supports_auto = (
             features.single_multilingual_model.state == FeatureState.SUPPORTED
+            and features.auto_detect_covers_all_languages
         )
         if supports_auto:
             warnings.append(
@@ -204,5 +215,44 @@ def validate_capabilities(
                     level="info",
                 )
             )
+
+    # Per-provider options: start from what this provider declares it sends,
+    # overlay only the keys the client asked to change, and drop anything
+    # unknown or of the wrong type so no unvalidated value reaches a vendor
+    # API. Providers index the result directly.
+    requested = config.params.options
+    merged: Dict[str, Any] = {}
+    for key, spec in features.options.items():
+        default = spec.default
+        value = requested.get(key, default)
+        if type(value) is type(default):
+            accepted = True
+        elif isinstance(default, float) and type(value) is int:
+            # JSON has one number type, so 2 for a 2.0 default is not a mismatch.
+            accepted = True
+        else:
+            accepted = False
+        if accepted and isinstance(value, str) and len(value) > MAX_OPTION_STR_LEN:
+            accepted = False
+        if not accepted:
+            warnings.append(
+                info_message(
+                    provider,
+                    f"Option `{key}` expects {type(default).__name__}; "
+                    "using this provider's default instead.",
+                    level="warning",
+                )
+            )
+            value = default
+        merged[key] = value
+    for key in requested.keys() - features.options.keys():
+        warnings.append(
+            info_message(
+                provider,
+                f"Option `{key}` is not supported by this provider and was ignored.",
+                level="warning",
+            )
+        )
+    config.params.options = merged
 
     return warnings

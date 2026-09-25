@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { ALL_PROVIDERS_LIST, type ProviderName } from "../lib/provider-features";
 import { activeProviders, useUrlSettings } from "../hooks/use-url-settings";
+import { notifyParentDemoStarted } from "../lib/embed";
 import { PcmPlayer } from "../lib/pcm-player";
 import type { TranslationStatus } from "../lib/translation-blocks";
 
@@ -69,17 +70,11 @@ export type AudioRecordingState =
   | "recording"
   | "stopping";
 
-export interface RawMessage {
-  provider: ProviderName;
-  data: string;
-}
-
 interface ComparisonContextState {
   recordingState: AudioRecordingState;
   providerOutputs: ProviderOutputs;
   providerTimings: ProviderTimings;
   appError: string | null;
-  rawMessages: RawMessage[];
   audioReady: boolean;
   selectedAudioFileName: string | null;
   audioRef: React.RefObject<HTMLAudioElement | null>;
@@ -91,7 +86,6 @@ interface ComparisonContextActions {
   stopRecording: () => void;
   togglePreview: () => Promise<void>;
   clearTranscriptOutputs: () => void;
-  clearRawMessages: () => void;
   setAudio: (audioUrl: string, fileName?: string) => void;
   clearAudio: () => void;
 }
@@ -166,7 +160,6 @@ export const ComparisonProvider = ({
     initializeProviderTimings(providers)
   );
   const [appError, setAppError] = useState<string | null>(null);
-  const [rawMessages, setRawMessages] = useState<RawMessage[]>([]);
   const [audioReady, setAudioReady] = useState(true);
   const [selectedAudioFileName, setSelectedAudioFileName] = useState<
     string | null
@@ -180,6 +173,7 @@ export const ComparisonProvider = ({
   const duckedRef = useRef(false);
   const sessionDoneRef = useRef<Set<ProviderName>>(new Set());
   const endInputTimerRef = useRef<number | null>(null);
+  const playerStopTimerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sourceNodeRef = useRef<
     MediaStreamAudioSourceNode | MediaElementAudioSourceNode | null
@@ -229,10 +223,6 @@ export const ComparisonProvider = ({
     );
     setProviderTimings(initializeProviderTimings(providers));
     setAppError(null);
-  };
-
-  const clearRawMessages = () => {
-    setRawMessages([]);
   };
 
   /** Tear down mic/file capture. Leaves the socket and the player alone. */
@@ -285,6 +275,19 @@ export const ComparisonProvider = ({
       // Stop is meant to cut everything immediately. Only a provider-signalled
       // end-of-session gets to let the queued tail finish.
       if (!drainAudio) player.stop();
+      // Translated speech is scheduled ahead of real time, so closing the
+      // AudioContext now would cut off whatever is still queued.
+      const stopPlayerAfterDrain = () => {
+        const remaining = player.remainingMs();
+        if (remaining > 0) {
+          playerStopTimerRef.current = window.setTimeout(
+            () => player.stop(),
+            remaining + 100
+          );
+        } else {
+          player.stop();
+        }
+      };
 
       duckedRef.current = false;
       sessionDoneRef.current = new Set();
@@ -310,13 +313,7 @@ export const ComparisonProvider = ({
           ) {
             ws.close();
           }
-          // Translated speech is scheduled ahead of real time, so closing the
-          // AudioContext now would cut off whatever is still queued.
-          if (drainAudio) {
-            const remaining = player.remainingMs();
-            if (remaining > 0) setTimeout(() => player.stop(), remaining + 100);
-            else player.stop();
-          }
+          if (drainAudio) stopPlayerAfterDrain();
         };
 
         if (ws.readyState === WebSocket.OPEN) {
@@ -327,9 +324,7 @@ export const ComparisonProvider = ({
           closeSocket();
         }
       } else if (drainAudio) {
-        const remaining = player.remainingMs();
-        if (remaining > 0) setTimeout(() => player.stop(), remaining + 100);
-        else player.stop();
+        stopPlayerAfterDrain();
       }
 
       // Clear "Recording..." on stop. Like the STT app, we do NOT promote
@@ -513,6 +508,14 @@ export const ComparisonProvider = ({
     setRecordingState("starting");
     setAppError(null);
 
+    // The previous session may still be draining its last chunks. Cut it now:
+    // left alone, its deferred stop would fire mid-session and close the
+    // context this session is about to prime.
+    if (playerStopTimerRef.current !== null) {
+      clearTimeout(playerStopTimerRef.current);
+      playerStopTimerRef.current = null;
+    }
+    playerRef.current.stop();
     // Must happen inside the click gesture: an AudioContext created later
     // starts suspended and silently drops every chunk we schedule.
     if (settings.mode === "s2s") {
@@ -598,9 +601,11 @@ export const ComparisonProvider = ({
       }/compare/api/compare-websocket?${getSettingsAsUrlParams()}`;
       wsRef.current = new WebSocket(wsUrl);
       wsRef.current.binaryType = "arraybuffer";
+      const ws = wsRef.current;
 
       wsRef.current.onopen = () => {
         setRecordingState("recording");
+        notifyParentDemoStarted();
         setProviderOutputs((prev) => {
           const newState = { ...prev };
           currentProviders.forEach(
@@ -670,19 +675,26 @@ export const ComparisonProvider = ({
 
         const provider = result.provider as ProviderName;
 
+        // After Stop this socket keeps its handler for WS_DRAIN_MS to collect
+        // the tail the providers flush, but a new session may already own
+        // wsRef. Only the transcript may take frames from the old socket;
+        // playback and session lifecycle belong to the new one.
+        const stale = ws !== wsRef.current;
+        if (
+          stale &&
+          (result.type === "audio" ||
+            result.type === "session_done" ||
+            result.session_ended)
+        ) {
+          return;
+        }
+
         if (
           result.session_ended &&
           recordingStateRef.current !== "idle" &&
           recordingStateRef.current !== "stopping"
         ) {
           stopRecordingInternal(true);
-        }
-
-        if (typeof rawData === "string" && provider) {
-          setRawMessages((prevRawMessages) => [
-            ...prevRawMessages,
-            { provider: provider, data: rawData },
-          ]);
         }
 
         // Translated speech. Schedule it, and duck the source file so the two
@@ -697,8 +709,15 @@ export const ComparisonProvider = ({
         }
 
         // A provider is finished. Once every active provider has said so, wind
-        // the session down, letting queued audio finish first.
-        if (result.type === "session_done") {
+        // the session down, letting queued audio finish first. A provider that
+        // errored (failed to connect, or died mid-session) will never report
+        // `session_done`, so count it as finished too rather than holding the
+        // others up for SESSION_DONE_TIMEOUT_MS.
+        if (
+          !stale &&
+          (result.type === "session_done" ||
+            (result.type === "error" && !result.session_ended))
+        ) {
           sessionDoneRef.current.add(provider);
           const allDone = activeProvidersRef.current.every((p) =>
             sessionDoneRef.current.has(p)
@@ -706,7 +725,7 @@ export const ComparisonProvider = ({
           if (allDone && recordingStateRef.current !== "idle") {
             stopRecordingInternal(true);
           }
-          return;
+          if (result.type === "session_done") return;
         }
 
         setProviderOutputs((prev) => {
@@ -768,6 +787,8 @@ export const ComparisonProvider = ({
           newOutputs[provider] = currentProviderOutput;
           return newOutputs;
         });
+
+        if (stale) return;
 
         // Mark the provider's active window for cost estimation. Any message
         // carrying transcript parts counts as a token; the first one starts the
@@ -842,12 +863,10 @@ export const ComparisonProvider = ({
     providerOutputs,
     providerTimings,
     appError,
-    rawMessages,
     startRecording,
     stopRecording,
     togglePreview,
     clearTranscriptOutputs,
-    clearRawMessages,
     setAudio,
     clearAudio,
     audioReady,

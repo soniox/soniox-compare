@@ -2,7 +2,6 @@ import React from "react";
 import { ChevronsUpDown, Languages } from "lucide-react";
 import { useUrlSettings } from "@/hooks/use-url-settings";
 import { useComparison } from "@/contexts/comparison-context";
-import { useModelData } from "@/contexts/model-data-context";
 import { useFeatures } from "@/contexts/feature-context";
 import { useLanguageSupport } from "@/hooks/use-language-support";
 import { Button } from "@/components/ui/button";
@@ -24,10 +23,10 @@ type Props = {
 
 export const LanguageSelect = ({ className }: Props) => {
   const { recordingState } = useComparison();
-  const { modelInfo, isLoading: isModelLoading } = useModelData();
   const { providerFeatures, supportsFeature } = useFeatures();
   const { settings, setLanguageHints } = useUrlSettings();
-  const { getProvidersForLanguage } = useLanguageSupport();
+  const { getProvidersForLanguage, languages: sourceLanguages, isLoading: isModelLoading } =
+    useLanguageSupport();
 
   const [open, setOpen] = React.useState(false);
   const [pinnedOrder, setPinnedOrder] = React.useState<string[]>([]);
@@ -40,7 +39,7 @@ export const LanguageSelect = ({ className }: Props) => {
   const isRecording = recordingState === "recording";
 
   const languages = React.useMemo(() => {
-    const sorted = [...(modelInfo?.languages ?? [])].sort((a, b) =>
+    const sorted = [...(sourceLanguages)].sort((a, b) =>
       a.name.localeCompare(b.name),
     );
     if (pinnedOrder.length === 0) return sorted;
@@ -50,20 +49,20 @@ export const LanguageSelect = ({ className }: Props) => {
       .filter((lang): lang is (typeof sorted)[number] => Boolean(lang));
     const rest = sorted.filter((lang) => !pinnedSet.has(lang.code));
     return [...pinned, ...rest];
-  }, [modelInfo?.languages, pinnedOrder]);
+  }, [sourceLanguages, pinnedOrder]);
 
   const validCodeSet = React.useMemo(
-    () => new Set((modelInfo?.languages ?? []).map((lang) => lang.code)),
-    [modelInfo?.languages],
+    () => new Set((sourceLanguages).map((lang) => lang.code)),
+    [sourceLanguages],
   );
 
   React.useEffect(() => {
-    if (!modelInfo?.languages) return;
+    if (sourceLanguages.length === 0) return;
     const sanitized = sanitizeLanguageHints(languageHints, validCodeSet);
     if (!languageHintsEqual(sanitized, languageHints)) {
       setLanguageHints(sanitized);
     }
-  }, [modelInfo?.languages, languageHints, validCodeSet, setLanguageHints]);
+  }, [sourceLanguages, languageHints, validCodeSet, setLanguageHints]);
 
   const primaryCode = languageHints[0];
   const firstSelectedLanguage = languages.find(

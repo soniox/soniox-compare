@@ -6,6 +6,7 @@ from typing import Any
 
 import websockets
 
+from config import get_language_mapping
 from providers.base import (
     BaseProvider,
     ProviderError,
@@ -50,19 +51,21 @@ class CartesiaProvider(BaseProvider):
             self._closing = False
             self._has_final_text = False
 
-            # ink-2 transcribes English only. Be explicit about the language and
-            # warn if the user requested other input languages, otherwise the
-            # comparison would silently default to English and look misleading.
-            non_english = [
-                hint for hint in self.config.params.language_hints if hint != "en"
+            # The endpoint takes no language parameter, so an unsupported input
+            # language comes back as nonsense rather than an error. Say so.
+            supported_languages = get_language_mapping(self.name)
+            unsupported_hints = [
+                hint
+                for hint in self.config.params.language_hints
+                if hint not in supported_languages
             ]
-            if non_english:
+            if unsupported_hints:
                 await self.host_queue.put(
                     info_message(
                         "Cartesia",
-                        "Cartesia (ink-2) transcribes English only; selected input "
-                        f"language(s) {', '.join(non_english)} will be transcribed "
-                        "as English.",
+                        "Cartesia (ink-2) transcribes English, French, Spanish, "
+                        "Japanese and Hindi; selected input language(s) "
+                        f"{', '.join(unsupported_hints)} are not among them.",
                         level="warning",
                     )
                 )
@@ -89,6 +92,7 @@ class CartesiaProvider(BaseProvider):
 
     async def disconnect(self) -> None:
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         if self._sender:
             self._sender.cancel()
         if self._receiver:
@@ -206,8 +210,9 @@ class CartesiaProvider(BaseProvider):
         return SupportedFeatures(
             name="Cartesia",
             model="ink-2",
-            # ink-2 currently transcribes English only.
-            single_multilingual_model=unsupported,
+            # One model covers all five languages and takes no language
+            # parameter, so it detects what it hears.
+            single_multilingual_model=supported,
             language_hints=unsupported,
             language_identification=unsupported,
             speaker_diarization=unsupported,

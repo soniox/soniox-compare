@@ -5,12 +5,18 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from config import get_credentials, get_provider_config, get_soniox_service_config
+from languages import (
+    source_language_support,
+    target_language_support,
+    unsupported_source,
+    unsupported_target,
+)
 from providers.base import BaseProvider
 from providers.config import Mode, ProviderParams
 from providers.azure import AzureProvider
@@ -19,9 +25,7 @@ from providers.openai import OpenaiProvider
 from providers.soniox import SonioxProvider
 from providers.speechmatics import SpeechmaticsProvider
 from providers.unsupported import UNSUPPORTED_PROVIDERS
-from utils import error_message
-
-load_dotenv(override=True)
+from utils import error_message, session_done_event
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -115,11 +119,27 @@ async def compare_websocket(
             enable_endpoint_detection=enable_endpoint_detection,
         )
 
-        for name in providers:
+        async def connect_provider(name: str) -> None:
             try:
                 provider_class = PROVIDER_MAP.get(name)
                 if provider_class is None:
                     raise ValueError(f"Unknown provider: {name}")
+
+                # The frontend greys these out, so reaching here means a
+                # hand-crafted request. Azure would otherwise answer with the
+                # untranslated source rather than failing.
+                missing = unsupported_target(name, target_language)
+                if missing is not None:
+                    raise ValueError(
+                        f"{missing} is not a supported target language for {name}"
+                    )
+
+                missing = unsupported_source(name, language_hints)
+                if missing is not None:
+                    raise ValueError(
+                        f"{missing} is not a supported source language for {name}"
+                    )
+
                 provider = provider_class(get_provider_config(name, provider_params))
                 active_providers[name] = provider
                 await provider.connect()
@@ -128,6 +148,14 @@ async def compare_websocket(
                 await websocket.send_json(
                     error_message(provider=name, message=str(ex))
                 )
+                # It will never report from a receive task, so tell the client
+                # not to wait for it.
+                await websocket.send_json(session_done_event(provider=name))
+
+        # In parallel: the browser starts streaming as soon as the socket is
+        # accepted, and Azure and Gemini each take ~1s to come up, so sequential
+        # connects delay every provider's first token by the sum.
+        await asyncio.gather(*(connect_provider(name) for name in providers))
 
         async def forward_to_client(provider_name: str, provider: BaseProvider):
             try:
@@ -204,7 +232,8 @@ async def compare_websocket(
                 f"Session time limit reached ({MAX_SESSION_SECONDS // 60} min). Please start a new session."
             )
         except Exception:
-            pass  # client disconnected or sent a bad frame — clean up below
+            # Usually the client disconnecting or a bad frame; clean up below.
+            log.debug("ws.session loop ended", exc_info=True)
     finally:
         for task in receive_tasks.values():
             task.cancel()
@@ -229,41 +258,53 @@ async def get_providers_features():
     return features
 
 
-@app.get("/compare/api/language-support", response_model=Dict[str, List[str]])
+class LanguageSupport(BaseModel):
+    # Every language at least one provider lists: what the picker offers.
+    all_languages: List[str]
+    providers: Dict[str, List[str]]
+
+
+def _language_support(providers: Dict[str, List[str]]) -> LanguageSupport:
+    return LanguageSupport(
+        all_languages=sorted(set().union(*providers.values())), providers=providers
+    )
+
+
+@app.get("/compare/api/language-support", response_model=LanguageSupport)
 async def get_language_support():
     """Per-provider *source*-language restrictions.
 
-    Every provider currently accepts any source language — they either
-    auto-detect or take a best-effort hint — so this is empty. It exists as the
-    seam for providers that constrain the source side; the frontend treats a
-    missing entry as "supports everything".
+    Only the providers that are actually told the source language appear here:
+    Azure needs a full locale and otherwise auto-detects across four candidates,
+    and Speechmatics rejects a source it does not support. Gemini and OpenAI
+    auto-detect and never receive the hint, so they are absent and the frontend
+    treats that as "supports everything". `all_languages` is the union of the
+    constraining providers only; the "Auto-detect" row represents the others.
+
+    Soniox constrains the source too, but its list comes from its own model
+    rather than this repo, so it is merged in live.
     """
-    return {}
+    support = source_language_support()
+    try:
+        support["soniox"] = await _soniox_language_codes()
+    except Exception as ex:
+        # Better to let Soniox look unconstrained than to fail the whole
+        # selector; a bad hint still surfaces as an error on its card.
+        log.warning("language-support: soniox model unavailable err=%s", ex)
+    return _language_support(support)
 
 
-_language_cache: Dict[str, List[dict]] = {}
-_language_lock = asyncio.Lock()
-
-
-async def _languages_for(name: str) -> List[dict]:
-    async with _language_lock:
-        if name not in _language_cache:
-            _language_cache[name] = await PROVIDER_MAP[name].list_languages(
-                api_key=get_credentials(name)
-            )
-        return _language_cache[name]
-
-
-@app.get("/compare/api/target-language-support", response_model=Dict[str, List[str]])
+@app.get("/compare/api/target-language-support", response_model=LanguageSupport)
 async def get_target_language_support():
-    """Per-provider target-language codes, for greying out the target picker."""
-    support: Dict[str, List[str]] = {}
-    for name in PROVIDER_MAP:
-        try:
-            support[name] = sorted(lang["code"] for lang in await _languages_for(name))
-        except Exception as ex:
-            log.warning("target-language-support failed provider=%s err=%s", name, ex)
-    return support
+    """Per-provider target-language codes, for greying out the target picker.
+    Soniox translates into every language its model hears, so the same live
+    list is merged in here."""
+    support = target_language_support()
+    try:
+        support["soniox"] = await _soniox_language_codes()
+    except Exception as ex:
+        log.warning("target-language-support: soniox model unavailable err=%s", ex)
+    return _language_support(support)
 
 
 @app.get("/compare/api/providers/{name}/voices")
@@ -275,9 +316,7 @@ async def list_voices(name: str) -> dict:
     }
 
 
-@app.get("/compare/api/soniox-model", response_model=Dict[str, Any])
-async def get_soniox_model():
-    """The Soniox model object, whose `languages` drives the source-language list."""
+async def _soniox_model() -> Dict[str, Any]:
     service_config = get_soniox_service_config()
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(
@@ -289,6 +328,11 @@ async def get_soniox_model():
             if model["id"] == "stt-rt-v5":
                 return model
     raise HTTPException(status_code=404, detail="Model not found")
+
+
+async def _soniox_language_codes() -> List[str]:
+    model = await _soniox_model()
+    return sorted(lang["code"] for lang in model.get("languages", []))
 
 
 @app.get(

@@ -12,7 +12,7 @@ from providers.config import (
     SupportedFeatures,
 )
 from utils import data_event, error_message, info_message, make_part, session_done_event
-from languages import SUPPORTED_LANGUAGES, get_provider_language, is_language_supported
+from languages import get_source_language, get_target_language
 
 log = logging.getLogger("translate.speechmatics")
 
@@ -60,25 +60,12 @@ class SpeechmaticsProvider(BaseProvider):
         super().__init__(config)
         self.api_key = config.service.api_key
         self._ws: websockets.ClientConnection | None = None
-        self._audio_queue: asyncio.Queue[tuple[str, bytes | None]] = asyncio.Queue()
         self._source_language = DEFAULT_SOURCE_LANGUAGE
         # Number of audio frames sent; `EndOfStream` must echo the last one back
         # or Speechmatics will not finalize.
         self._seq_no = 0
         self._partial_original: dict | None = None
         self._partial_translation: dict | None = None
-
-    @classmethod
-    def model_info(cls) -> dict[str, str]:
-        return {"model": MODEL}
-
-    @classmethod
-    async def list_languages(cls, api_key: str | None = None) -> list[dict]:
-        return [
-            {"code": c}
-            for c in SUPPORTED_LANGUAGES
-            if is_language_supported(c, "speechmatics")
-        ]
 
     async def connect(self) -> None:
         if self._is_connected:
@@ -132,7 +119,9 @@ class SpeechmaticsProvider(BaseProvider):
 
     def _build_config(self, target: str) -> dict:
         transcription_config: dict = {
-            "language": self._source_language,
+            # `_source_language` stays canonical for the part labels; only the
+            # wire value is mapped (Speechmatics wants "cmn" for Chinese).
+            "language": get_source_language(self._source_language, "speechmatics"),
             "model": MODEL,
             "enable_partials": True,
             "max_delay": MAX_DELAY_SEC,
@@ -149,32 +138,15 @@ class SpeechmaticsProvider(BaseProvider):
             "transcription_config": transcription_config,
             "translation_config": {
                 "target_languages": [
-                    get_provider_language(target, "speechmatics") or target
+                    get_target_language(target, "speechmatics")
                 ],
                 "enable_partials": True,
             },
         }
 
-    async def disconnect(self) -> None:
-        if self._stopped:
-            return
-        self._stopped = True
-        self._is_connected = False
-        for t in self._tasks:
-            t.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+    async def _close_upstream(self) -> None:
         if self._ws is not None:
-            try:
-                await self._ws.close()
-            except Exception:
-                pass
-        await self.host_queue.put(None)
-
-    async def send(self, data: bytes) -> None:
-        await self._audio_queue.put(("audio", data))
-
-    async def send_end(self) -> None:
-        await self._audio_queue.put(("end", None))
+            await self._ws.close()
 
     async def _send_loop(self) -> None:
         try:

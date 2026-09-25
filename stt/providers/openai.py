@@ -19,6 +19,11 @@ from utils import make_part
 # so incoming audio is resampled to this rate before being sent.
 OPENAI_SAMPLE_RATE = 24000
 
+# These models reject `turn_detection` outright ("Turn detection is not
+# supported for this transcription model"), so the session must omit it. They
+# still stream deltas; the transcript is finalized by the commit on send_end.
+NO_TURN_DETECTION_MODELS = frozenset({"gpt-realtime-whisper", "gpt-live-transcribe"})
+
 
 class OpenaiProvider(BaseProvider):
     name = "openai"
@@ -92,6 +97,7 @@ class OpenaiProvider(BaseProvider):
 
     async def disconnect(self) -> None:
         self._is_connected = False
+        self.host_queue.put_nowait(None)
         if self._sender:
             self._sender.cancel()
         if self._receiver:
@@ -147,7 +153,22 @@ class OpenaiProvider(BaseProvider):
                 if event_type == "conversation.item.input_audio_transcription.delta":
                     logprobs = event.get("logprobs", None)
 
-                    if logprobs:
+                    if not logprobs:
+                        # Models outside the gpt-4o family return no logprobs,
+                        # only the text. Without this they emit nothing at all.
+                        delta = event.get("delta", "")
+                        if delta:
+                            non_final_parts.append(
+                                make_part(text=delta, is_final=False)
+                            )
+                            await self.host_queue.put(
+                                {
+                                    "type": "data",
+                                    "provider": self.name,
+                                    "parts": non_final_parts,
+                                }
+                            )
+                    elif logprobs:
                         for token in logprobs:
                             non_final_parts.append(
                                 make_part(
@@ -180,7 +201,21 @@ class OpenaiProvider(BaseProvider):
 
                         logprobs = event.get("logprobs", None)
 
-                        if logprobs:
+                        if not logprobs:
+                            transcript = event.get("transcript", "")
+                            if transcript:
+                                await self.host_queue.put(
+                                    {
+                                        "type": "data",
+                                        "provider": self.name,
+                                        "parts": [
+                                            make_part(
+                                                text=transcript + " ", is_final=True
+                                            )
+                                        ],
+                                    }
+                                )
+                        elif logprobs:
                             parts = []
 
                             for token in logprobs:
@@ -243,16 +278,23 @@ class OpenaiProvider(BaseProvider):
         if language:
             transcription["language"] = language
 
+        if self.config.service.model in NO_TURN_DETECTION_MODELS:
+            turn_detection: dict[str, Any] = {}
+        else:
+            turn_detection = {
+                "turn_detection": {
+                    "type": "server_vad",
+                    "silence_duration_ms": self.silence_duration_ms,
+                }
+            }
+
         return {
             "type": "transcription",
             "audio": {
                 "input": {
                     "format": {"type": "audio/pcm", "rate": OPENAI_SAMPLE_RATE},
                     "transcription": transcription,
-                    "turn_detection": {
-                        "type": "server_vad",
-                        "silence_duration_ms": self.silence_duration_ms,
-                    },
+                    **turn_detection,
                 }
             },
             "include": [
@@ -275,6 +317,32 @@ class OpenaiProvider(BaseProvider):
             timestamps=unsupported,
             confidence_scores=supported,
             real_time_latency_config=unsupported,
-            endpoint_detection=unsupported,
-            manual_finalization=unsupported,
+            endpoint_detection=FeatureStatus.partial(
+                comment="Segments are cut by the server VAD after a fixed 100 ms "
+                "of silence, not by context-aware turn detection. Each segment "
+                "arrives as its own final transcript; no <end> marker is shown.",
+            ),
+            manual_finalization=FeatureStatus.supported(
+                comment="An `input_audio_buffer.commit` finalizes whatever audio "
+                "is still buffered.",
+            ),
         )
+
+
+class OpenaiWhisperProvider(OpenaiProvider):
+    """The Whisper-family realtime model. It rejects server VAD, so the
+    transcript is finalized by the commit on send_end rather than at detected
+    speech boundaries, and it normalizes numbers less than gpt-4o-transcribe."""
+
+    name = "openai:whisper"
+
+    @staticmethod
+    def get_available_features():
+        features = OpenaiProvider.get_available_features()
+        features.model = "gpt-realtime-whisper"
+        features.endpoint_detection = FeatureStatus.unsupported(
+            comment="This model rejects server VAD, so there are no detected "
+            "speech boundaries; the transcript finalizes on the commit sent at "
+            "the end of the stream.",
+        )
+        return features

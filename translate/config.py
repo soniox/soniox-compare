@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from providers.config import ProviderConfig, ProviderError, ProviderParams, ServiceConfig
 
-load_dotenv(override=True)
+load_dotenv()
 
 _CRED_ENV: dict[str, str] = {
     "soniox": "SONIOX_API_KEY",
@@ -30,9 +30,7 @@ def get_soniox_service_config() -> ServiceConfig:
     return ServiceConfig(
         api_key=_require_key("soniox"),
         websocket_url="wss://stt-rt.soniox.com/transcribe-websocket",
-        model="stt-rt-v5",
         tts_websocket_url="wss://tts-rt.soniox.com/tts-websocket",
-        tts_model="tts-rt-v2",
     )
 
 
@@ -40,7 +38,6 @@ def get_openai_service_config() -> ServiceConfig:
     return ServiceConfig(
         api_key=_require_key("openai"),
         websocket_url="wss://api.openai.com/v1/realtime/translations",
-        model="gpt-realtime-translate",
     )
 
 
@@ -48,27 +45,19 @@ def get_gemini_service_config() -> ServiceConfig:
     """Unlike the STT/TTS projects (Vertex AI service account), this uses the
     Gemini Developer API with an API key: the live-translate model's
     translation_config is not supported in Vertex AI mode."""
-    return ServiceConfig(
-        api_key=_require_key("gemini"),
-        model="gemini-3.5-live-translate-preview",
-    )
+    return ServiceConfig(api_key=_require_key("gemini"))
 
 
 def get_speechmatics_service_config() -> ServiceConfig:
     return ServiceConfig(
         api_key=_require_key("speechmatics"),
         websocket_url="wss://eu2.rt.speechmatics.com/v2",
-        model="enhanced",
     )
 
 
 def get_azure_service_config() -> ServiceConfig:
     region = os.environ.get("AZURE_REGION", "")
-    return ServiceConfig(
-        api_key=_require_key("azure"),
-        region=region,
-        model="azure-speech-translation",
-    )
+    return ServiceConfig(api_key=_require_key("azure"), region=region)
 
 
 _SERVICE_CONFIG_FACTORIES = {

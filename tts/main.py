@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 import os
 
 from dotenv import load_dotenv
@@ -6,16 +7,23 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from languages import SUPPORTED_LANGUAGES, is_language_supported
+from languages import (
+    AUTO_DETECT_PROVIDERS,
+    SUPPORTED_LANGUAGES,
+    is_language_supported,
+)
 from providers import (
     azure,
     cartesia,
+    deepgram,
     elevenlabs,
+    fish,
     google,
+    inworld,
     openai,
     smallest,
-    smallest_pro,
     soniox,
+    xai,
 )
 from providers.base import ProviderError
 
@@ -24,10 +32,14 @@ PROVIDER_MAP = {
     "google": google.generate,
     "openai": openai.generate,
     "elevenlabs": elevenlabs.generate,
+    "fish": fish.generate,
+    "inworld": inworld.generate,
     "cartesia": cartesia.generate,
+    "deepgram": deepgram.generate,
     "azure": azure.generate,
     "smallest": smallest.generate,
-    "smallest_pro": smallest_pro.generate,
+    "smallest:pro": partial(smallest.generate, key="smallest:pro"),
+    "xai": xai.generate,
 }
 
 load_dotenv()
@@ -106,6 +118,9 @@ def get_config():
             ]
             for provider in PROVIDER_MAP
         },
+        "auto_detect_providers": [
+            provider for provider in PROVIDER_MAP if provider in AUTO_DETECT_PROVIDERS
+        ],
     }
 
 

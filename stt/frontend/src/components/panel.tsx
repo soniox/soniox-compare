@@ -19,7 +19,7 @@ export const Panel = ({
   priceSection,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   titleTooltip?: React.ReactNode;
   children: React.ReactNode;
   muted?: boolean;
@@ -35,23 +35,24 @@ export const Panel = ({
   // estimate with its own tooltip). Falls back to the static cost strings.
   priceSection?: React.ReactNode;
 }) => {
-  const titleElement = titleTooltip && !disableTitleTooltip ? (
-    <ResponsiveTooltip
-      content={titleTooltip}
-      contentClassName="bg-white text-zinc-800 border border-zinc-200 shadow-md rounded-lg px-3 py-2.5 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-700"
-      arrowClassName="bg-white fill-white border-b border-r border-zinc-200 dark:bg-zinc-900 dark:fill-zinc-900 dark:border-zinc-700"
-    >
-      <span className="cursor-default">{title}</span>
-    </ResponsiveTooltip>
-  ) : (
-    title
-  );
+  const titleElement =
+    titleTooltip && !disableTitleTooltip ? (
+      <ResponsiveTooltip
+        content={titleTooltip}
+        contentClassName="bg-white text-zinc-800 border border-zinc-200 shadow-md rounded-lg px-3 py-2.5 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-700"
+        arrowClassName="bg-white fill-white border-b border-r border-zinc-200 dark:bg-zinc-900 dark:fill-zinc-900 dark:border-zinc-700"
+      >
+        <span className="cursor-default">{title}</span>
+      </ResponsiveTooltip>
+    ) : (
+      title
+    );
 
   return (
     <section
       className={cn(
         "w-full h-full min-h-0 pt-0 flex flex-col rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700",
-        muted ? "bg-zinc-100" : "bg-white"
+        muted ? "bg-zinc-100" : "bg-white",
       )}
     >
       <div
@@ -59,7 +60,7 @@ export const Panel = ({
         className={cn(
           "sticky top-0 z-10 border-b p-2",
           muted ? "bg-zinc-100" : "bg-white",
-          headerClassName
+          headerClassName,
         )}
       >
         <div className="flex flex-row items-center gap-2.5">
@@ -77,15 +78,17 @@ export const Panel = ({
               className={cn(
                 "w-fit max-w-full text-sm font-bold capitalize truncate leading-tight",
                 muted ? "text-zinc-700" : "text-zinc-800",
-                className
+                className,
               )}
             >
               {titleElement}
             </h2>
-            {subtitle && (
+            {typeof subtitle === "string" ? (
               <p className="text-[10px] font-medium text-zinc-400 lowercase truncate leading-tight">
                 {subtitle}
               </p>
+            ) : (
+              subtitle
             )}
           </div>
 

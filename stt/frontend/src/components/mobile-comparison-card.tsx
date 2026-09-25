@@ -13,7 +13,7 @@ import { ProviderPickerGrid } from "./provider-picker-grid";
 type Props = {
   provider: ProviderName;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   titleTooltip?: ReactNode;
   pickableProviders: ProviderName[];
   providerFeatures: ProviderFeatures | null;

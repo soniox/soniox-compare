@@ -18,7 +18,6 @@ from utils import audio_event, data_event, error_message, make_part, session_don
 
 log = logging.getLogger("translate.soniox")
 
-STT_ENDPOINT = "https://api.soniox.com/v1/models"
 TTS_ENDPOINT = "https://api.soniox.com/v1/tts-models"
 STT_MODEL = "stt-rt-v5"
 TTS_MODEL = "tts-rt-v2"
@@ -48,7 +47,6 @@ class SonioxProvider(BaseProvider):
         self.api_key = config.service.api_key
         self._stt_ws: websockets.ClientConnection | None = None
         self._tts_ws: websockets.ClientConnection | None = None
-        self._audio_queue: asyncio.Queue[tuple[str, bytes | None]] = asyncio.Queue()
         self._text_queue: asyncio.Queue[tuple[str, str | None] | None] = asyncio.Queue()
         # Set when the playback queue drains, so session shutdown waits
         # for tail audio before sending `session_done`.
@@ -77,10 +75,6 @@ class SonioxProvider(BaseProvider):
         self._utt_first_audio_logged: bool = False
 
     @classmethod
-    def model_info(cls) -> dict[str, str]:
-        return {"stt": STT_MODEL, "tts": TTS_MODEL}
-
-    @classmethod
     async def list_voices(cls, api_key: str | None = None) -> list[dict]:
         """Query Soniox for currently supported TTS voices."""
         try:
@@ -93,23 +87,6 @@ class SonioxProvider(BaseProvider):
                 for model in data["models"]:
                     if model["id"] == TTS_MODEL:
                         return model["voices"]
-                return []
-        except httpx.HTTPError as e:
-            raise ProviderError(message=str(e))
-
-    @classmethod
-    async def list_languages(cls, api_key: str | None = None) -> list[dict]:
-        """Query Soniox for currently supported languages."""
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(
-                    url=STT_ENDPOINT, headers={"Authorization": f"Bearer {api_key}"}
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                for model in data["models"]:
-                    if model["id"] == STT_MODEL:
-                        return model["languages"]
                 return []
         except httpx.HTTPError as e:
             raise ProviderError(message=str(e))
@@ -165,14 +142,7 @@ class SonioxProvider(BaseProvider):
         except Exception as ex:
             raise ProviderError(f"{ex}")
 
-    async def disconnect(self) -> None:
-        if self._stopped:
-            return
-        self._stopped = True
-        self._is_connected = False
-        for t in self._tasks:
-            t.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+    async def _close_upstream(self) -> None:
         for ws in (self._stt_ws, self._tts_ws):
             if ws is not None:
                 try:
@@ -180,10 +150,6 @@ class SonioxProvider(BaseProvider):
                 except Exception:
                     pass
         self._tts_idle.set()
-        await self.host_queue.put(None)
-
-    async def send(self, data: bytes) -> None:
-        await self._audio_queue.put(("audio", data))
 
     async def send_end(self) -> None:
         """Signal that no more audio will arrive.
@@ -638,7 +604,7 @@ class SonioxProvider(BaseProvider):
     def _build_stt_config(self) -> dict:
         cfg = {
             "api_key": self.api_key,
-            "model": self.service.model,
+            "model": STT_MODEL,
             "audio_format": self.config.common.audio_format,
             "num_channels": self.config.common.num_channels,
             "sample_rate": self.config.common.sample_rate,
@@ -660,7 +626,7 @@ class SonioxProvider(BaseProvider):
         return {
             "api_key": self.api_key,
             "stream_id": stream_id,
-            "model": self.service.tts_model,
+            "model": TTS_MODEL,
             "voice": self.params.voice,
             "language": self.params.target_language,
             "audio_format": "pcm_s16le",

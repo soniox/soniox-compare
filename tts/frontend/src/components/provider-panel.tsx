@@ -1,20 +1,36 @@
 import { FrequencyBars } from "@/components/frequency-bars";
+import { ModelSelect } from "@/components/model-select";
 import { ProviderCost } from "@/components/provider-cost";
+import { ProviderNotice } from "@/components/provider-notice";
 import { Button } from "@/components/ui/button";
 import { useConfig } from "@/contexts/config-context";
 import { useTts } from "@/contexts/tts-context";
 import {
+  groupOf,
   PROVIDER_DISPLAY_NAMES,
-  PROVIDER_MODELS,
   getProviderIcon,
   type ProviderName,
 } from "@/lib/providers";
 import { cn } from "@/lib/utils";
 import { Loader2, Play, Square } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, type HTMLAttributes, type ReactNode } from "react";
 
-export const ProviderPanel = ({ provider }: { provider: ProviderName }) => {
-  const { isLanguageSupported } = useConfig();
+type Props = {
+  provider: ProviderName;
+  headerProps?: HTMLAttributes<HTMLDivElement>;
+  headerClassName?: string;
+  disableCostTooltip?: boolean;
+  trailingElement?: ReactNode;
+};
+
+export const ProviderPanel = ({
+  provider,
+  headerProps,
+  headerClassName,
+  disableCostTooltip = false,
+  trailingElement,
+}: Props) => {
+  const { isLanguageSupported, infersLanguage } = useConfig();
   const {
     language,
     providerStates,
@@ -26,6 +42,7 @@ export const ProviderPanel = ({ provider }: { provider: ProviderName }) => {
   } = useTts();
   const { status, error } = providerStates[provider];
   const supported = isLanguageSupported(language, provider);
+  const showLanguageNotice = supported && infersLanguage(provider);
   const isSoniox = provider === "soniox";
 
   const isActive =
@@ -64,12 +81,18 @@ export const ProviderPanel = ({ provider }: { provider: ProviderName }) => {
           />
         </div>
       )}
-      <div className="relative min-w-0 sm:border-b border-zinc-200 dark:border-zinc-700 sm:p-2">
+      <div
+        {...headerProps}
+        className={cn(
+          "relative min-w-0 sm:border-b border-zinc-200 dark:border-zinc-700 sm:p-2",
+          headerClassName,
+        )}
+      >
         <div className="flex flex-row items-center gap-2.5">
           <div className="h-9 w-9 shrink-0 rounded-md dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden">
             <img
               src={getProviderIcon(provider)}
-              alt={`${PROVIDER_DISPLAY_NAMES[provider]} logo`}
+              alt={`${PROVIDER_DISPLAY_NAMES[groupOf(provider)]} logo`}
               className="h-6 w-6 object-contain"
             />
           </div>
@@ -80,16 +103,20 @@ export const ProviderPanel = ({ provider }: { provider: ProviderName }) => {
                 isSoniox && "text-soniox dark:text-soniox",
               )}
             >
-              {PROVIDER_DISPLAY_NAMES[provider]}
+              {PROVIDER_DISPLAY_NAMES[groupOf(provider)]}
             </h2>
-            <p className="text-[10px] font-medium text-zinc-400 lowercase truncate leading-tight">
-              {PROVIDER_MODELS[provider]}
-            </p>
+            <ModelSelect provider={provider} />
           </div>
           <ProviderCost
             provider={provider}
-            providerName={PROVIDER_DISPLAY_NAMES[provider]}
+            providerName={PROVIDER_DISPLAY_NAMES[groupOf(provider)]}
+            disableTooltip={disableCostTooltip}
           />
+          {trailingElement && (
+            <div className="hidden shrink-0 items-center sm:flex">
+              {trailingElement}
+            </div>
+          )}
         </div>
       </div>
 
@@ -151,6 +178,21 @@ export const ProviderPanel = ({ provider }: { provider: ProviderName }) => {
           </p>
         )}
       </div>
+
+      {trailingElement && (
+        <div className="flex shrink-0 items-center sm:hidden">
+          {trailingElement}
+        </div>
+      )}
+
+      {showLanguageNotice && (
+        <div className="hidden sm:block">
+          <ProviderNotice
+            message="Language is inferred from the text."
+            detail="This provider does not support language selection; it infers the language from the text."
+          />
+        </div>
+      )}
     </section>
   );
 };

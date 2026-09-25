@@ -8,7 +8,12 @@ from google.genai import types
 
 from config import get_language_mapping
 from providers.base import BaseProvider, ProviderError
-from providers.config import FeatureStatus, ProviderConfig, SupportedFeatures
+from providers.config import (
+    FeatureStatus,
+    ProviderConfig,
+    ProviderOption,
+    SupportedFeatures,
+)
 from utils import make_part
 
 log = logging.getLogger("stt.google")
@@ -19,7 +24,11 @@ SUPPORTED_LANGUAGES_URL = (
     "https://ai.google.dev/gemini-api/docs/live-api/live-transcribe#supported-languages"
 )
 
-TRANSCRIPTION_MODE = types.AudioTranscriptionConfigMode.VERBATIM
+# VERBATIM keeps what was said; SMART rewrites it — dropping filler words and
+# reformatting lists — so it is the formatted mode, exposed as an option and off
+# by default like every other provider's formatting switch.
+VERBATIM_MODE = types.AudioTranscriptionConfigMode.VERBATIM
+SMART_MODE = types.AudioTranscriptionConfigMode.SMART
 
 MAX_CUSTOM_VOCABULARY_TERMS = 1000
 
@@ -145,9 +154,13 @@ class GoogleProvider(BaseProvider):
         The SDK session object is only valid inside the `async with` block, so
         the send and receive loops run nested within it.
         """
+        if self.config.params.options["smart_mode"]:
+            mode = SMART_MODE
+        else:
+            mode = VERBATIM_MODE
         transcription = types.AudioTranscriptionConfig(
             language_codes=self._language_codes(),
-            mode=TRANSCRIPTION_MODE,
+            mode=mode,
         )
         vocabulary = self._custom_vocabulary()
         if vocabulary:
@@ -187,7 +200,11 @@ class GoogleProvider(BaseProvider):
         except Exception as exc:
             await self._handle_session_failure(exc)
         finally:
+            # Every ending (server close, failure, cancellation from
+            # disconnect) passes through here, so this is the one place that
+            # tells the forward loop the session is over.
             self._is_connected = False
+            self.host_queue.put_nowait(None)
 
     async def _send_loop(self, session) -> None:
         mime_type = f"audio/pcm;rate={self.config.common.sample_rate}"
@@ -358,4 +375,12 @@ class GoogleProvider(BaseProvider):
                 "open turn to finalize, but there is no way to finalize while "
                 "audio keeps flowing."
             ),
+            options={
+                "smart_mode": ProviderOption(
+                    default=False,
+                    comment="Switches the model from VERBATIM to SMART, which "
+                    "punctuates and also rewrites the transcript: filler words "
+                    "go and lists are reformatted.",
+                )
+            },
         )

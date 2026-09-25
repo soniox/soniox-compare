@@ -1,10 +1,11 @@
 import React from "react";
+import { useUrlSettings } from "@/hooks/use-url-settings";
 import { useComparison } from "@/contexts/comparison-context";
 import { type ProviderName } from "@/lib/provider-features";
 import {
   formatEstimatedCost,
   formatPricePerHour,
-  getProviderPricing,
+  priceBreakdown,
 } from "@/lib/provider-pricing";
 import { cn } from "@/lib/utils";
 import { PricingTooltip } from "./pricing-tooltip";
@@ -26,7 +27,8 @@ export const ProviderCost = ({
   disableTooltip = false,
 }: Props) => {
   const { providerTimings, recordingState } = useComparison();
-  const pricing = getProviderPricing(provider);
+  const { settings } = useUrlSettings();
+  const pricing = priceBreakdown(provider, settings);
   const timing = providerTimings[provider];
 
   // The meter only runs live while audio is streaming. Once we leave the
@@ -49,12 +51,10 @@ export const ProviderCost = ({
       ? 0
       : Math.max(0, (isLive ? now : lastTokenAt ?? firstTokenAt) - firstTokenAt);
 
-  const cost = pricing ? (activeMs / 3600000) * pricing.pricePerHour : 0;
+  const cost = pricing ? (activeMs / 3600000) * pricing.total : 0;
 
   const costLabel = `~${formatEstimatedCost(cost)}`;
-  const priceLabel = pricing
-    ? formatPricePerHour(pricing.pricePerHour)
-    : "n/a";
+  const priceLabel = pricing ? formatPricePerHour(pricing.total) : "n/a";
 
   // Swallow pointer-down so dragging cannot be initiated from the price area and
   // hovering the price can't fight with the card's drag handle.
@@ -82,7 +82,11 @@ export const ProviderCost = ({
   return (
     <ResponsiveTooltip
       content={
-        <PricingTooltip providerName={providerName} pricing={pricing} />
+        <PricingTooltip
+          provider={provider}
+          providerName={providerName}
+          pricing={pricing}
+        />
       }
       contentClassName="bg-white text-zinc-800 border border-zinc-200 shadow-md rounded-lg px-3 py-2.5 dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-700"
       arrowClassName="bg-white fill-white border-b border-r border-zinc-200 dark:bg-zinc-900 dark:fill-zinc-900 dark:border-zinc-700"
