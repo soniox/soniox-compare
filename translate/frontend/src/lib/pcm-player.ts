@@ -2,6 +2,8 @@
 export class PcmPlayer {
   private ctx: AudioContext | null = null;
   private nextPlayTime = 0;
+  private master: GainNode | null = null;
+  private capture: MediaStreamAudioDestinationNode | null = null;
 
   /**
    * Create + resume the AudioContext from inside a user gesture so it starts in
@@ -24,6 +26,9 @@ export class PcmPlayer {
   private ensureCtx(): AudioContext {
     if (!this.ctx) {
       this.ctx = new AudioContext();
+      this.master = this.ctx.createGain();
+      this.master.connect(this.ctx.destination);
+      this.capture = null;
       this.nextPlayTime = 0;
     }
     if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
@@ -49,7 +54,7 @@ export class PcmPlayer {
 
     const src = ctx.createBufferSource();
     src.buffer = buffer;
-    src.connect(ctx.destination);
+    src.connect(this.master ?? ctx.destination);
 
     // Schedule back-to-back rather than at `currentTime`, so consecutive
     // chunks play without a seam.
@@ -62,8 +67,20 @@ export class PcmPlayer {
     if (this.ctx) {
       this.ctx.close().catch(() => {});
       this.ctx = null;
+      this.master = null;
+      this.capture = null;
     }
     this.nextPlayTime = 0;
+  }
+
+  /** Everything this player outputs, for the in-app recorder. */
+  captureStream(): MediaStream | null {
+    if (!this.ctx || !this.master) return null;
+    if (!this.capture) {
+      this.capture = this.ctx.createMediaStreamDestination();
+      this.master.connect(this.capture);
+    }
+    return this.capture.stream;
   }
 
   /**

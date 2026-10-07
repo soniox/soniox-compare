@@ -9,7 +9,7 @@ import {
 import { useComparison } from "@/contexts/comparison-context";
 import { useUrlSettings, type UrlSettings } from "@/hooks/use-url-settings";
 import { Button } from "../ui/button";
-import { ChevronRight, FileAudio, Upload } from "lucide-react";
+import { ChevronRight, FileAudio, FileUp, Upload } from "lucide-react";
 import { useState, useRef } from "react";
 import { ResponsiveTooltip } from "../ui/responsive-tooltip";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
@@ -180,7 +180,7 @@ export const ChooseAudioFileDialog = ({ disabled }: { disabled?: boolean }) => {
               }
               aria-label="Select audio file"
             >
-              <Upload className="w-4 h-4" />
+              <FileUp className="w-4 h-4" />
             </Button>
           </DialogTrigger>
         </ResponsiveTooltip>

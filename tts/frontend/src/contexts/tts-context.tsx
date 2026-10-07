@@ -24,7 +24,11 @@ import { notifyParentDemoStarted } from "@/lib/embed";
 export const MAX_TEXT_LENGTH = 256;
 
 export type PlaybackStatus =
-  "idle" | "loading" | "playing" | "paused" | "error";
+  | "idle"
+  | "loading"
+  | "playing"
+  | "paused"
+  | "error";
 
 interface ProviderState {
   status: PlaybackStatus;
@@ -53,6 +57,8 @@ interface TtsContextType {
   canSkipNext: boolean;
   canSkipPrevious: boolean;
   getAnalyser: (provider: ProviderName) => AnalyserNode | null;
+  /** Everything the providers play. */
+  getRecordingAudioStreams: () => MediaStream[];
   getPlaybackSeconds: (provider: ProviderName) => number;
 }
 
@@ -114,6 +120,21 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const recordingDestinationRef =
+    useRef<MediaStreamAudioDestinationNode | null>(null);
+  const getRecordingAudioStreams = useCallback((): MediaStream[] => {
+    const context = (audioContextRef.current ??= new AudioContext());
+    let destination = recordingDestinationRef.current;
+    if (!destination || destination.context !== context) {
+      destination = context.createMediaStreamDestination();
+      recordingDestinationRef.current = destination;
+      for (const tap of Object.values(tapsRef.current)) {
+        tap?.analyser.connect(destination);
+      }
+    }
+    return [destination.stream];
+  }, []);
+
   // Routes the element through an analyser. Once tapped, the element is only
   // audible through the graph, so a suspended context would silence it.
   const attachAnalyser = useCallback(
@@ -130,6 +151,9 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
         analyser.maxDecibels = MAX_DECIBELS;
         source.connect(analyser);
         analyser.connect(context.destination);
+        if (recordingDestinationRef.current) {
+          analyser.connect(recordingDestinationRef.current);
+        }
         tapsRef.current[provider] = { source, analyser };
       } catch {
         // The visualization is decorative; the element still plays untapped.
@@ -412,6 +436,7 @@ export function TtsProvider({ children }: { children: React.ReactNode }) {
         canSkipNext: isPlayingAll && run.index < run.order.length - 1,
         canSkipPrevious: isPlayingAll && run.index > 0,
         getAnalyser,
+        getRecordingAudioStreams,
         getPlaybackSeconds,
       }}
     >

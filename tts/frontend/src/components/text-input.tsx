@@ -2,6 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_TEXT_LENGTH, useTts } from "@/contexts/tts-context";
 import { cn } from "@/lib/utils";
+import { useCanRecord, useRecorder } from "@/contexts/recorder-context";
+import { RecordControlsDot } from "@/components/controls/record-controls-dot";
+import { RecordControlsDownloadButton } from "@/components/controls/record-controls-download-button";
+import { RecordControlsSplitMenu } from "@/components/controls/record-controls-split-menu";
 import { Play, SkipBack, SkipForward, Square } from "lucide-react";
 
 const SKIP_BUTTON_CLASS =
@@ -19,6 +23,8 @@ export const TextInput = () => {
     canSkipNext,
     canSkipPrevious,
   } = useTts();
+  const recorder = useRecorder();
+  const canRecord = useCanRecord();
 
   return (
     <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start">
@@ -55,26 +61,52 @@ export const TextInput = () => {
           </Button>
         )}
 
-        <Button
-          onClick={isPlayingAll ? stopAll : playAll}
-          variant={isPlayingAll ? "destructive" : "default"}
-          disabled={!isPlayingAll && text.trim().length === 0}
-          className={cn(
-            "flex-1 px-5 sm:flex-none sm:min-w-40",
-            isPlayingAll ? "" : "bg-soniox",
-          )}
-        >
-          <div className="flex flex-row items-center gap-x-2 leading-none">
-            {isPlayingAll ? (
-              <Square className="size-4 shrink-0 fill-current" />
-            ) : (
-              <Play className="size-4 shrink-0 fill-current" />
+        <div className="flex flex-1 items-center sm:flex-none">
+          <Button
+            onClick={
+              recorder.isAwaitingSession
+                ? recorder.stop
+                : isPlayingAll
+                  ? stopAll
+                  : playAll
+            }
+            variant={isPlayingAll ? "destructive" : "default"}
+            disabled={
+              !isPlayingAll &&
+              !recorder.isAwaitingSession &&
+              text.trim().length === 0
+            }
+            className={cn(
+              "flex-1 px-5 sm:flex-none sm:min-w-40",
+              canRecord && "rounded-r-none",
+              isPlayingAll ? "" : "bg-soniox",
             )}
-            <span className="text-[15px] font-semibold tracking-tight">
-              {isPlayingAll ? "Stop" : "Play all"}
-            </span>
-          </div>
-        </Button>
+          >
+            <div className="flex flex-row items-center gap-x-2 leading-none">
+              {recorder.isAwaitingSession ? (
+                <RecordControlsDot />
+              ) : isPlayingAll ? (
+                <Square className="size-4 shrink-0 fill-current" />
+              ) : (
+                <Play className="size-4 shrink-0 fill-current" />
+              )}
+              <span className="text-[15px] font-semibold tracking-tight">
+                {recorder.isAwaitingSession
+                  ? "Stop recording"
+                  : isPlayingAll
+                    ? "Stop"
+                    : "Play all"}
+              </span>
+            </div>
+          </Button>
+          <RecordControlsSplitMenu
+            label="Record & play all"
+            play={playAll}
+            disabled={isPlayingAll || text.trim().length === 0}
+            variant={isPlayingAll ? "destructive" : "default"}
+          />
+        </div>
+        <RecordControlsDownloadButton />
 
         {isPlayingAll && (
           <Button

@@ -6,6 +6,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Slider } from "@/components/ui/slider";
 import { AudioWaveButton } from "../audio-wave-button";
 import { cn } from "@/lib/utils";
+import { useCanRecord, useRecorder } from "@/contexts/recorder-context";
+import { RecordControlsDot } from "@/components/controls/record-controls-dot";
+import { RecordControlsDownloadButton } from "@/components/controls/record-controls-download-button";
+import { RecordControlsSplitMenu } from "@/components/controls/record-controls-split-menu";
 
 export const ActionPanel = () => {
   const {
@@ -21,60 +25,85 @@ export const ActionPanel = () => {
   const isConnecting = recordingState === "connecting";
 
   const hasAudioFile = !!selectedAudioFileName;
+  const canStart = !hasAudioFile || audioReady;
+  const recorder = useRecorder();
+  const canRecord = useCanRecord();
 
   return (
     <div className="w-full flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
       {hasAudioFile && <AudioFileControls />}
       <div className="flex items-center justify-end gap-2 sm:gap-3">
         <ChooseAudioFileDialog />
-        <AudioWaveButton
-          onClick={
-            isRecording
-              ? stopRecording
-              : hasAudioFile && audioReady
-                ? startRecording
-                : !hasAudioFile
-                  ? startRecording
-                  : () => {}
-          }
-          variant={isRecording ? "destructive" : "default"}
-          className={cn(
-            "shrink-0 px-5 flex-1 min-w-40 sm:flex-initial",
-            isRecording ? "" : "bg-soniox",
-          )}
-          disabled={
-            isStarting ||
-            isStopping ||
-            (hasAudioFile && !audioReady && !isRecording)
-          }
-        >
-          {isRecording ? (
-            <div className="flex flex-row items-center gap-x-2 leading-none">
-              <StopCircle className="size-[18px] shrink-0" />
-              <span className="text-[15px] font-semibold tracking-tight">
-                {isConnecting
-                  ? "Connecting..."
-                  : isStarting
-                    ? "Starting..."
-                    : "Stop"}
-              </span>
-            </div>
-          ) : hasAudioFile ? (
-            <div className="flex flex-row items-center gap-x-2 leading-none">
-              <PlayCircle className="size-[18px] shrink-0" />
-              <span className="text-[15px] font-semibold tracking-tight">
-                {audioReady ? "Play audio file" : "Loading audio..."}
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-row items-center gap-x-2 leading-none">
-              <Mic className="size-[18px] shrink-0" />
-              <span className="text-[15px] font-semibold tracking-tight">
-                Start talking
-              </span>
-            </div>
-          )}
-        </AudioWaveButton>
+        <div className="flex flex-1 items-center sm:flex-initial">
+          <AudioWaveButton
+            onClick={
+              recorder.isAwaitingSession
+                ? recorder.stop
+                : isRecording
+                  ? stopRecording
+                  : canStart
+                    ? startRecording
+                    : () => {}
+            }
+            variant={isRecording ? "destructive" : "default"}
+            className={cn(
+              "shrink-0 px-5 flex-1 min-w-40 sm:flex-initial",
+              canRecord && "rounded-r-none",
+              isRecording ? "" : "bg-soniox",
+            )}
+            disabled={
+              !recorder.isAwaitingSession &&
+              (isStarting ||
+                isStopping ||
+                (hasAudioFile && !audioReady && !isRecording))
+            }
+          >
+            {recorder.isAwaitingSession ? (
+              <div className="flex flex-row items-center gap-x-2 leading-none">
+                <RecordControlsDot />
+                <span className="text-[15px] font-semibold tracking-tight">
+                  Stop recording
+                </span>
+              </div>
+            ) : isRecording ? (
+              <div className="flex flex-row items-center gap-x-2 leading-none">
+                <StopCircle className="size-[18px] shrink-0" />
+                <span className="text-[15px] font-semibold tracking-tight">
+                  {isConnecting
+                    ? "Connecting..."
+                    : isStarting
+                      ? "Starting..."
+                      : "Stop"}
+                </span>
+              </div>
+            ) : hasAudioFile ? (
+              <div className="flex flex-row items-center gap-x-2 leading-none">
+                <PlayCircle className="size-[18px] shrink-0" />
+                <span className="text-[15px] font-semibold tracking-tight">
+                  {audioReady ? "Play audio file" : "Loading audio..."}
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-row items-center gap-x-2 leading-none">
+                <Mic className="size-[18px] shrink-0" />
+                <span className="text-[15px] font-semibold tracking-tight">
+                  Start talking
+                </span>
+              </div>
+            )}
+          </AudioWaveButton>
+          <RecordControlsSplitMenu
+            label={
+              hasAudioFile
+                ? "Record & play audio file"
+                : "Record & start talking"
+            }
+            play={startRecording}
+            disabled={recordingState !== "idle" || !canStart}
+            variant={isRecording ? "destructive" : "default"}
+          />
+        </div>
+        <RecordControlsDownloadButton />
       </div>
     </div>
   );

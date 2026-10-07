@@ -85,6 +85,52 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       text: "يرجى تأكيد بيانات الاتصال: Yuki Takahashi، جوال +966-50-555-0142، بريد إلكتروني fatima.al-rashid@example.co.uk.",
     },
   ],
+  // Armenian
+  hy: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Ձեր այցը հաստատված է երեքշաբթի, 2026 թվականի մարտի 15-ին, ժամը 15:30-ին։ Վերանշանակելու համար զանգահարեք +374-10-123-456։",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Ձեր SXN-7H3-KQ9 պատվերը կառաքվի Աբովյան փողոց 42, Երևան 0001 հասցեով՝ 09:00-ից 17:30-ն ընկած ժամանակահատվածում։ Հետևում՝ UPS-1Z999AA10։",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Ձեր 520 000 ֏ հաշիվը ենթակա է վճարման 2026 թվականի մարտի 15-ին, 30 օր հետո կկիրառվի 2,5% տույժ։ Անդորրագրերն ուղարկվել են j.patel@clinic-health.co.uk հասցեին։",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Խնդրում ենք հաստատել ձեր կոնտակտային տվյալները՝ Yuki Takahashi, բջջային +374-91-555-142, էլ. փոստ fatima.al-rashid@example.co.uk։",
+    },
+  ],
+  // Assamese
+  as: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "আপোনাৰ এপইণ্টমেণ্ট মংগলবাৰ, 15 মাৰ্চ 2026, আবেলি 3:30 বজাৰ বাবে নিশ্চিত কৰা হৈছে। সময় সলনি কৰিবলৈ +91-361-123-4567 নম্বৰত ফোন কৰক।",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "আপোনাৰ অৰ্ডাৰ SXN-7H3-KQ9 জি এছ ৰোড 42, গুৱাহাটী 781005 ঠিকনাত পুৱা 9:00 বজাৰ পৰা আবেলি 5:30 বজাৰ ভিতৰত পৌঁছিব। ট্ৰেকিং UPS-1Z999AA10।",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "আপোনাৰ ₹1,08,450 ৰ বিল 15 মাৰ্চ 2026 ত পৰিশোধ কৰিব লাগিব, 30 দিনৰ পিছত 2.5% বিলম্ব মাচুল লাগু হ'ব। ৰচিদবোৰ j.patel@clinic-health.co.uk লৈ পঠিওৱা হৈছে।",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "অনুগ্ৰহ কৰি আপোনাৰ যোগাযোগৰ বিৱৰণ নিশ্চিত কৰক: Yuki Takahashi, ম'বাইল +91-94350-55142, ইমেইল fatima.al-rashid@example.co.uk।",
+    },
+  ],
   // Azerbaijani
   az: [
     {
@@ -244,6 +290,52 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       type: "contact",
       label: "Contact",
       text: "Si us plau, confirmeu les vostres dades de contacte: Yuki Takahashi, mòbil +34-688-555-142, correu fatima.al-rashid@example.co.uk.",
+    },
+  ],
+  // Cebuano
+  ceb: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Ang imong appointment gikumpirma sa Martes, Marso 15, 2026, alas 3:30 sa hapon. Tawag sa +63-32-123-4567 aron usbon ang iskedyul.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Ang imong order SXN-7H3-KQ9 ihatod sa 42 Osmeña Boulevard, Cebu City 6000 tali sa alas 9:00 sa buntag ug alas 5:30 sa hapon. Tracking UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Ang imong bayranan nga ₱45,800.00 kinahanglang bayran sa Marso 15, 2026, nga adunay 2.5% nga multa sa ulahing bayad human sa 30 ka adlaw. Ang mga resibo gipadala sa j.patel@clinic-health.co.uk.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Palihug kumpirmaha ang imong mga detalye sa kontak: Yuki Takahashi, mobile +63-917-555-0142, email fatima.al-rashid@example.co.uk.",
+    },
+  ],
+  // Chichewa
+  ny: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Nthawi yanu yokumana yatsimikiziridwa Lachiwiri, 15 Marichi 2026 nthawi ya 15:30. Imbani +265-1-123-456 kuti musinthe nthawi.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Oda yanu SXN-7H3-KQ9 idzaperekedwa ku 42 Kamuzu Procession Road, Lilongwe pakati pa 9:00 ndi 17:30. Kutsatira UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Bilu yanu ya MK 850,000.00 ikuyenera kulipidwa pa 15 Marichi 2026, ndi chindapusa cha 2.5% cha kuchedwa pambuyo pa masiku 30. Malisiti atumizidwa ku j.patel@clinic-health.co.uk.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Chonde tsimikizirani zambiri zanu zolumikizirana: Yuki Takahashi, foni ya m'manja +265-99-555-0142, imelo fatima.al-rashid@example.co.uk.",
     },
   ],
   // Chinese
@@ -476,6 +568,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       text: "Confirme os seus datos de contacto: Yuki Takahashi, móbil +34-688-555-142, correo fatima.al-rashid@example.co.uk.",
     },
   ],
+  // Georgian
+  ka: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "თქვენი ვიზიტი დადასტურებულია სამშაბათს, 2026 წლის 15 მარტს, 15:30-ზე. დროის შესაცვლელად დარეკეთ +995-32-212-3456.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "თქვენი შეკვეთა SXN-7H3-KQ9 მიეწოდება მისამართზე რუსთაველის გამზირი 42, თბილისი 0108, 9:00-დან 17:30-მდე. თვალყურის დევნება UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "თქვენი ანგარიში 3 450,00 ₾ ოდენობით გადასახდელია 2026 წლის 15 მარტს, 30 დღის შემდეგ დაირიცხება 2,5% საურავი. ქვითრები გაიგზავნა j.patel@clinic-health.co.uk-ზე.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "გთხოვთ, დაადასტუროთ თქვენი საკონტაქტო მონაცემები: Yuki Takahashi, მობილური +995-555-55-01-42, ელფოსტა fatima.al-rashid@example.co.uk.",
+    },
+  ],
   // German
   de: [
     {
@@ -543,6 +658,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       type: "contact",
       label: "Contact",
       text: "કૃપા કરીને તમારી સંપર્ક વિગતો પુષ્ટિ કરો: Yuki Takahashi, મોબાઇલ +91-98250-55142, ઇમેઇલ fatima.al-rashid@example.co.uk.",
+    },
+  ],
+  // Hausa
+  ha: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "An tabbatar da ganawarka ranar Talata, 15 ga Maris 2026 da ƙarfe 3:30 na yamma. Kira +234-9-123-4567 don sake tsara lokaci.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Za a kai odarka SXN-7H3-KQ9 zuwa Titin Ahmadu Bello 42, Kano 700001 tsakanin ƙarfe 9:00 na safe da 5:30 na yamma. Bin diddigi UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Kuɗin da ake bin ka na ₦185,000.00 za a biya shi ranar 15 ga Maris 2026, tare da tarar jinkiri ta 2.5% bayan kwanaki 30. An aika rasit zuwa j.patel@clinic-health.co.uk.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Don Allah ka tabbatar da bayanan tuntuɓarka: Yuki Takahashi, wayar hannu +234-803-555-0142, imel fatima.al-rashid@example.co.uk.",
     },
   ],
   // Hebrew
@@ -614,6 +752,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       text: "Kérjük, erősítse meg elérhetőségeit: Yuki Takahashi, mobil +36-20-555-0142, e-mail fatima.al-rashid@example.co.uk.",
     },
   ],
+  // Icelandic
+  is: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Tíminn þinn er staðfestur þriðjudaginn 15. mars 2026 kl. 15:30. Hringdu í +354-512-3456 til að breyta tímanum.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Pöntunin þín SXN-7H3-KQ9 verður afhent á Laugavegi 42, 101 Reykjavík milli kl. 9:00 og 17:30. Rakning UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Reikningur þinn að upphæð 185.400 kr. er á gjalddaga 15. mars 2026, með 2,5% dráttarvöxtum eftir 30 daga. Kvittanir voru sendar á j.patel@clinic-health.co.uk.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Vinsamlegast staðfestu tengiliðaupplýsingar þínar: Yuki Takahashi, farsími +354-855-0142, netfang fatima.al-rashid@example.co.uk.",
+    },
+  ],
   // Indonesian
   id: [
     {
@@ -635,6 +796,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       type: "contact",
       label: "Contact",
       text: "Mohon konfirmasi detail kontak Anda: Yuki Takahashi, ponsel +62-812-5555-0142, email fatima.al-rashid@example.co.uk.",
+    },
+  ],
+  // Irish
+  ga: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Tá do choinne deimhnithe don Mháirt, 15 Márta 2026 ag 15:30. Glaoigh ar +353-1-123-4567 chun an coinne a athshocrú.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Seachadfar d'ordú SXN-7H3-KQ9 chuig 42 Sráid Grafton, Baile Átha Cliath 2 idir 9:00 agus 17:30. Rianú UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Tá do bhille de €1,299.50 dlite ar 15 Márta 2026, le táille dhéanach 2.5% tar éis 30 lá. Seoladh na hadmhálacha chuig j.patel@clinic-health.co.uk.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Deimhnigh do shonraí teagmhála, le do thoil: Yuki Takahashi, fón póca +353-87-555-0142, ríomhphost fatima.al-rashid@example.co.uk.",
     },
   ],
   // Italian
@@ -681,6 +865,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       type: "contact",
       label: "Contact",
       text: "ご連絡先をご確認ください。Yuki Takahashi 様、携帯 +81-90-5555-0142、メール fatima.al-rashid@example.co.uk。",
+    },
+  ],
+  // Javanese
+  jv: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Janjian panjenengan wis dikonfirmasi dina Selasa, 15 Maret 2026 jam 15.30. Telpon +62-274-123-456 kanggo ngganti jadwal.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Pesenan panjenengan SXN-7H3-KQ9 bakal dikirim menyang Jalan Malioboro 42, Yogyakarta 55271 antarane jam 09.00 lan 17.30. Pelacakan UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Tagihan panjenengan Rp 1.250.000 kudu dibayar tanggal 15 Maret 2026, kanthi denda telat 2,5% sawise 30 dina. Kuitansi wis dikirim menyang j.patel@clinic-health.co.uk.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Mangga konfirmasi rincian kontak panjenengan: Yuki Takahashi, HP +62-812-5555-0142, email fatima.al-rashid@example.co.uk.",
     },
   ],
   // Kannada
@@ -750,6 +957,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       type: "contact",
       label: "Contact",
       text: "연락처를 확인해 주세요: Yuki Takahashi, 휴대폰 +82-10-5555-0142, 이메일 fatima.al-rashid@example.co.uk.",
+    },
+  ],
+  // Kyrgyz
+  ky: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Сиздин жолугушууңуз 2026-жылдын 15-мартына, шейшемби күнү саат 15:30га ырасталды. Убакытты өзгөртүү үчүн +996-312-123-456 номерине чалыңыз.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Сиздин SXN-7H3-KQ9 буйрутмаңыз Чүй проспекти 42, Бишкек 720001 дарегине саат 9:00дон 17:30га чейин жеткирилет. Көзөмөлдөө UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Сиздин 45 800 сом өлчөмүндөгү эсебиңиз 2026-жылдын 15-мартында төлөнүшү керек, 30 күндөн кийин 2,5% кечиктирүү айыбы колдонулат. Дүмүрчөктөр j.patel@clinic-health.co.uk дарегине жөнөтүлдү.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Сураныч, байланыш маалыматтарыңызды ырастаңыз: Yuki Takahashi, мобилдик +996-555-550-142, электрондук почта fatima.al-rashid@example.co.uk.",
     },
   ],
   // Latvian
@@ -890,6 +1120,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       text: "कृपया तुमचे संपर्क तपशील निश्चित करा: Yuki Takahashi, मोबाईल +91-98220-55142, ईमेल fatima.al-rashid@example.co.uk.",
     },
   ],
+  // Nepali
+  ne: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "तपाईंको अपोइन्टमेन्ट मंगलबार, 15 मार्च 2026 बेलुका 3:30 बजेका लागि पक्का भएको छ। समय परिवर्तन गर्न +977-1-4123456 मा फोन गर्नुहोस्।",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "तपाईंको अर्डर SXN-7H3-KQ9 दरबारमार्ग 42, काठमाडौं 44600 मा बिहान 9:00 देखि बेलुका 5:30 बजेसम्म डेलिभर गरिनेछ। ट्र्याकिङ UPS-1Z999AA10।",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "तपाईंको रु 1,45,000 को बिल 15 मार्च 2026 मा तिर्नुपर्नेछ, 30 दिनपछि 2.5% ढिलाइ शुल्क लाग्नेछ। रसिदहरू j.patel@clinic-health.co.uk मा पठाइएको छ।",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "कृपया आफ्नो सम्पर्क विवरण पुष्टि गर्नुहोस्: Yuki Takahashi, मोबाइल +977-98-5555-0142, इमेल fatima.al-rashid@example.co.uk।",
+    },
+  ],
   // Norwegian
   no: [
     {
@@ -911,6 +1164,52 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       type: "contact",
       label: "Contact",
       text: "Vennligst bekreft kontaktopplysningene dine: Yuki Takahashi, mobil +47-91-55-01-42, e-post fatima.al-rashid@example.co.uk.",
+    },
+  ],
+  // Odia
+  or: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "ଆପଣଙ୍କ ଆପଏଣ୍ଟମେଣ୍ଟ ମଙ୍ଗଳବାର, 15 ମାର୍ଚ୍ଚ 2026, ଅପରାହ୍ନ 3:30 ପାଇଁ ନିଶ୍ଚିତ ହୋଇଛି। ପୁନଃନିର୍ଧାରଣ ପାଇଁ +91-674-123-4567 ରେ କଲ କରନ୍ତୁ।",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "ଆପଣଙ୍କ ଅର୍ଡର SXN-7H3-KQ9 ଜନପଥ 42, ଭୁବନେଶ୍ୱର 751001 ଠିକଣାରେ ସକାଳ 9:00 ରୁ ଅପରାହ୍ନ 5:30 ମଧ୍ୟରେ ପହଞ୍ଚିବ। ଟ୍ରାକିଂ UPS-1Z999AA10।",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "ଆପଣଙ୍କ ₹1,08,450 ର ବିଲ 15 ମାର୍ଚ୍ଚ 2026 ରେ ଦେୟ, 30 ଦିନ ପରେ 2.5% ବିଳମ୍ବ ଶୁଳ୍କ ଲାଗୁ ହେବ। ରସିଦଗୁଡ଼ିକ j.patel@clinic-health.co.uk କୁ ପଠାଯାଇଛି।",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "ଦୟାକରି ଆପଣଙ୍କ ଯୋଗାଯୋଗ ବିବରଣୀ ନିଶ୍ଚିତ କରନ୍ତୁ: Yuki Takahashi, ମୋବାଇଲ +91-94370-55142, ଇମେଲ fatima.al-rashid@example.co.uk।",
+    },
+  ],
+  // Pashto
+  ps: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "ستاسو ملاقات د سه شنبې، د 2026 کال د مارچ په 15مه، د ماسپښین په 3:30 بجو تایید شوی دی. د وخت بدلولو لپاره +93-20-123-4567 ته زنګ ووهئ.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "ستاسو فرمایش SXN-7H3-KQ9 به د سهار له 9:00 بجو څخه د ماښام تر 5:30 بجو پورې د دارالامان سړک 42، کابل 1001 ته ورسول شي. تعقیب UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "ستاسو د 85,000 افغانیو بل د 2026 کال د مارچ په 15مه ورکول کېږي، له 30 ورځو وروسته به 2.5% د ځنډ جریمه ولګېږي. رسیدونه j.patel@clinic-health.co.uk ته لېږل شوي دي.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "مهرباني وکړئ خپل د اړیکې معلومات تایید کړئ: Yuki Takahashi، موبایل +93-70-555-0142، برېښنالیک fatima.al-rashid@example.co.uk.",
     },
   ],
   // Persian
@@ -1074,6 +1373,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       text: "Молимо потврдите контакт податке: Yuki Takahashi, мобилни +381-64-555-0142, имејл fatima.al-rashid@example.co.uk.",
     },
   ],
+  // Sindhi
+  sd: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "توهان جي ملاقات اڱاري، 15 مارچ 2026 تي شام 3:30 وڳي لاءِ پڪي ٿي وئي آهي. وقت بدلائڻ لاءِ +92-22-123-4567 تي فون ڪريو.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "توهان جو آرڊر SXN-7H3-KQ9 صبح 9:00 کان شام 5:30 وڳي جي وچ ۾ شاهراهِ فيصل 42، ڪراچي 75350 تي پهچايو ويندو. ٽريڪنگ UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "توهان جو Rs 385,000 جو بل 15 مارچ 2026 تي ادا ڪرڻو آهي، 30 ڏينهن کانپوءِ 2.5% دير جي فيس لاڳو ٿيندي. رسيدون j.patel@clinic-health.co.uk تي موڪليون ويون آهن.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "مهرباني ڪري پنهنجي رابطي جي تفصيل جي تصديق ڪريو: Yuki Takahashi، موبائل +92-300-555-0142، اي ميل fatima.al-rashid@example.co.uk.",
+    },
+  ],
   // Slovak
   sk: [
     {
@@ -1118,6 +1440,29 @@ export const TTS_SAMPLES: Record<string, CompareTtsSample[]> = {
       type: "contact",
       label: "Contact",
       text: "Prosimo, potrdite svoje kontaktne podatke: Yuki Takahashi, mobilni +386-40-555-142, e-pošta fatima.al-rashid@example.co.uk.",
+    },
+  ],
+  // Somali
+  so: [
+    {
+      type: "appointment",
+      label: "Appointment",
+      text: "Ballantaada waxaa la xaqiijiyay Talaado, 15 Maarso 2026, saacadda 15:30. Wac +252-61-123-4567 si aad wakhtiga u beddesho.",
+    },
+    {
+      type: "delivery",
+      label: "Delivery",
+      text: "Dalabkaaga SXN-7H3-KQ9 waxaa la geyn doonaa Wadada Maka Al-Mukarama 42, Muqdisho, inta u dhaxaysa 9:00 iyo 17:30. Raadraac UPS-1Z999AA10.",
+    },
+    {
+      type: "billing",
+      label: "Billing",
+      text: "Biilkaaga oo dhan $1,299.50 waxaa la bixinayaa 15 Maarso 2026, iyadoo 2.5% ganaax daahitaan ah lagu dari doono 30 maalmood kadib. Rasiidhada waxaa loo diray j.patel@clinic-health.co.uk.",
+    },
+    {
+      type: "contact",
+      label: "Contact",
+      text: "Fadlan xaqiiji macluumaadkaaga xiriirka: Yuki Takahashi, mobilka +252-61-555-0142, iimaylka fatima.al-rashid@example.co.uk.",
     },
   ],
   // Spanish

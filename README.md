@@ -50,6 +50,12 @@ Streaming apps (`stt`, `translate`): the browser sends PCM16 / 16 kHz over a Web
 
 `tts` is REST instead: the browser calls `GET /compare/api/tts?text=…&provider=…&language=…`, and the provider's `generate()` makes one upstream call and streams back `audio/mpeg`. No sockets, no session state.
 
+### Recording
+
+On desktop, every app's play button has a dropdown item that records a video of the app while it runs and downloads it when the run ends (MP4 where the browser can encode it, WebM in Firefox). Phone-sized layouts don't offer it. The video is always 16:9 at 2560×1440 and always shows the desktop layout, as a rounded frame on the app's brand photo (`src/assets/recording-background.webp`), whatever the size of the window or iframe. While recording, the app is rendered a second time into a hidden 1440×810 iframe (the stage) and the video is taken from that copy; it shares all live state with the visible app, so a phone-sized page shows its mobile layout but records the desktop one. UI state local to the visible copy (open popovers and dialogs, a transcript scrolled up by hand) isn't in the video. It doesn't use screen capture: the stage's DOM is rasterized to a canvas on every change and the audio is tapped from the app's own Web Audio graph (mic, audio file, provider playback). So there's no share prompt and it works inside an iframe without extra permissions. The frame rate follows how often the page changes (capped at 20 fps); a backgrounded tab is throttled by the browser to ~1 fps.
+
+The code is `frontend/src/lib/recorder/` (capture pipeline), `contexts/recorder-context.tsx` (React state and the stage) and `components/controls/record-controls-*.tsx`, identical in all three apps: change one and copy it to the others. Each app wires it up in `components/session-recorder.tsx`, wrapped around the layout in `app.tsx`, and hands over its audio through `getRecordingAudioStreams` on its main context.
+
 ## Conventions
 
 Shared by all three apps:
@@ -113,8 +119,8 @@ The frontend reads per-provider languages and capabilities from the backend (`/c
 
 ### `tts/` — text-to-speech (REST)
 
-- **Providers (10):** `soniox`, `google`, `openai`, `elevenlabs`, `fish`, `inworld`, `xai`, `cartesia`, `azure`, `smallest:pro`.
-- **Notable models:** Soniox `tts-rt-v2`, OpenAI `gpt-4o-mini-tts`, ElevenLabs `eleven_v3`, Google `gemini-2.5-flash-tts`, Fish Audio `s2.1-pro`, Inworld `inworld-tts-2`, xAI `tts-v1`, Cartesia `sonic-3.6`, Azure Dragon HD (`en-US-Ava:DragonHDOmniLatestNeural`).
+- **Providers (11):** `soniox`, `google`, `openai`, `elevenlabs:v4`, `elevenlabs`, `fish`, `inworld`, `xai`, `cartesia`, `azure`, `smallest:pro`.
+- **Notable models:** Soniox `tts-rt-v2`, OpenAI `gpt-4o-mini-tts`, ElevenLabs `eleven_v4` / `eleven_v3`, Google `gemini-2.5-flash-tts`, Fish Audio `s2.1-pro`, Inworld `inworld-tts-2`, xAI `tts-v1`, Cartesia `sonic-3.6`, Azure Dragon HD (`en-US-Ava:DragonHDOmniLatestNeural`).
 - **Endpoints:** `GET /compare/api/tts` (query `text` ≤ 256 chars, `provider`, `language`; returns `audio/mpeg`), `GET /compare/api/config`, `GET /.well-known/health/soniox-tts-compare`, `GET /.well-known/version/soniox-tts-compare`.
 - **App-specific:** `MAX_TEXT_LENGTH = 256`; `languages.py` maps Soniox language codes to each provider's codes; curated per-language sample texts live in `frontend/src/lib/samples.ts`.
 

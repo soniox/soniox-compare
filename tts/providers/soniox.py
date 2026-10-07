@@ -18,5 +18,6 @@ async def generate(text: str, language: str) -> AsyncIterator[bytes]:
             "voice": "Hazel",
             "audio_format": "mp3",
             "text": text,
+            "reduce_silence": True,
         },
     )

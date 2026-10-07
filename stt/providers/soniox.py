@@ -31,9 +31,13 @@ class SonioxProvider(BaseProvider):
             await self.host_queue.put(warning)
 
         try:
-            self.websocket = await websockets.connect(self.config.service.websocket_url)
+            self.websocket = await websockets.connect(
+                self.config.service.websocket_url,
+                additional_headers={
+                    "Authorization": f"Bearer {self.config.service.api_key}"
+                },
+            )
             init_msg = {
-                "api_key": self.config.service.api_key,
                 "audio_format": self.config.common.audio_format,
                 "sample_rate": self.config.common.sample_rate,
                 "num_channels": self.config.common.num_channels,

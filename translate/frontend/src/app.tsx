@@ -1,5 +1,6 @@
 import { ComparisonProvider } from "@/contexts/comparison-context";
 import { MainLayout } from "@/components/main-layout";
+import { SessionRecorder } from "@/components/session-recorder";
 import { FooterControls } from "@/components/footer-controls";
 import { HeaderControls } from "@/components/header-controls";
 import { ProviderGrid } from "@/components/provider-grid";
@@ -43,11 +44,13 @@ function AppCore() {
 
   return (
     <ComparisonProvider>
-      <MainLayout
-        mainContent={<ProviderGrid />}
-        footerContent={<FooterControls />}
-        headerControlsContent={<HeaderControls />}
-      />
+      <SessionRecorder>
+        <MainLayout
+          mainContent={<ProviderGrid />}
+          footerContent={<FooterControls />}
+          headerControlsContent={<HeaderControls />}
+        />
+      </SessionRecorder>
     </ComparisonProvider>
   );
 }

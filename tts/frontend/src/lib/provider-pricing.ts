@@ -46,6 +46,15 @@ export const PROVIDER_PRICING: Record<ProviderName, ProviderPricing> = {
       updatedAt: "July 2026",
     },
   },
+  "elevenlabs:v4": {
+    billing: "characters",
+    pricePerThousandChars: 0.08,
+    pricePerHour: 4.0,
+    tooltip: {
+      description: "Eleven v4, $0.08 per 1K characters.",
+      updatedAt: "September 2026",
+    },
+  },
   elevenlabs: {
     billing: "characters",
     pricePerThousandChars: 0.1,
@@ -99,6 +108,45 @@ export const PROVIDER_PRICING: Record<ProviderName, ProviderPricing> = {
     tooltip: {
       description: "Audio output is 25 tokens per second of generated speech.",
       updatedAt: "July 2026",
+    },
+  },
+  "google:3.8-flash": {
+    billing: "tokens",
+    inputPrice: 0.5,
+    outputPrice: 9.0,
+    pricePerHour: 0.82,
+    tooltip: {
+      description:
+        "Gemini 3.8 Flash TTS via the Gemini API: $9 per 1M audio output " +
+        "tokens at 25 tokens per second, plus $0.50 per 1M text input tokens. " +
+        "Doubles to $18 / $1 from January 1, 2027.",
+      updatedAt: "October 2026",
+    },
+  },
+  "google:3.8-flash-lite": {
+    billing: "tokens",
+    inputPrice: 0.5,
+    outputPrice: 6.0,
+    pricePerHour: 0.55,
+    tooltip: {
+      description:
+        "Gemini 3.8 Flash-Lite TTS via the Gemini API: $6 per 1M audio output " +
+        "tokens at 25 tokens per second, plus $0.50 per 1M text input tokens. " +
+        "Doubles to $12 / $1 from January 1, 2027.",
+      updatedAt: "October 2026",
+    },
+  },
+  "google:3.1-flash": {
+    billing: "tokens",
+    inputPrice: 1.0,
+    outputPrice: 20.0,
+    pricePerHour: 1.81,
+    tooltip: {
+      description:
+        "Gemini 3.1 Flash TTS Preview via the Gemini API: $20 per 1M audio " +
+        "output tokens at 25 tokens per second, plus $1 per 1M text input " +
+        "tokens.",
+      updatedAt: "October 2026",
     },
   },
   deepgram: {

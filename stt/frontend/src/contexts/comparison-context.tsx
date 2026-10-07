@@ -101,6 +101,8 @@ interface ComparisonContextState {
   selectedAudioFileName: string | null;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   analyserRef: React.RefObject<AnalyserNode | null>;
+  /** The mic, or file playback. */
+  getRecordingAudioStreams: () => MediaStream[];
 }
 
 interface ComparisonContextActions {
@@ -134,7 +136,7 @@ const emptyOutput = (statusMessage = ""): OutputData => ({
 });
 
 const initializeProviderOutputs = (
-  providers: ProviderName[]
+  providers: ProviderName[],
 ): ProviderOutputs =>
   providers.reduce((acc, provider) => {
     acc[provider] = emptyOutput();
@@ -148,7 +150,7 @@ const initializeRawOutputs = (providers: ProviderName[]): RawOutputs =>
   }, {} as RawOutputs);
 
 const initializeProviderTimings = (
-  providers: ProviderName[]
+  providers: ProviderName[],
 ): ProviderTimings =>
   providers.reduce((acc, provider) => {
     acc[provider] = { firstTokenAt: null, lastTokenAt: null };
@@ -156,7 +158,7 @@ const initializeProviderTimings = (
   }, {} as ProviderTimings);
 
 const ComparisonContext = createContext<ComparisonContextType | undefined>(
-  undefined
+  undefined,
 );
 
 interface CustomWindow extends Window {
@@ -181,14 +183,14 @@ export const ComparisonProvider = ({
   const [recordingState, setRecordingState] =
     useState<AudioRecordingState>("idle");
   const [providerOutputs, setProviderOutputs] = useState<ProviderOutputs>(() =>
-    initializeProviderOutputs(providers)
+    initializeProviderOutputs(providers),
   );
   const [providerTimings, setProviderTimings] = useState<ProviderTimings>(() =>
-    initializeProviderTimings(providers)
+    initializeProviderTimings(providers),
   );
   const [appError, setAppError] = useState<string | null>(null);
   const [rawOutputs, setRawOutputs] = useState<RawOutputs>(() =>
-    initializeRawOutputs(providers)
+    initializeRawOutputs(providers),
   );
   const [rawMessages, setRawMessages] = useState<RawMessage[]>([]);
   const [audioReady, setAudioReady] = useState(true);
@@ -206,13 +208,15 @@ export const ComparisonProvider = ({
   const fileAudioContextRef = useRef<AudioContext | null>(null);
   const fileSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const recordingDestinationRef =
+    useRef<MediaStreamAudioDestinationNode | null>(null);
   const activeProvidersRef = useRef<ProviderName[]>([]);
   // Raw messages live outside React until they are actually on screen: they
   // arrive for every upstream event, and putting each one through state would
   // re-render every card even while the transcript view is up.
-  const rawBufferRef = useRef<Partial<Record<ProviderName, RawProviderMessage[]>>>(
-    {}
-  );
+  const rawBufferRef = useRef<
+    Partial<Record<ProviderName, RawProviderMessage[]>>
+  >({});
   const rawDirtyRef = useRef<Set<ProviderName>>(new Set());
   const rawFlushRef = useRef<number | null>(null);
   const rawModeRef = useRef(false);
@@ -261,7 +265,7 @@ export const ComparisonProvider = ({
         rawFlushRef.current = window.setTimeout(flushRawMessages, RAW_FLUSH_MS);
       }
     },
-    [flushRawMessages]
+    [flushRawMessages],
   );
 
   const resetRawMessages = useCallback((providersToReset: ProviderName[]) => {
@@ -284,7 +288,7 @@ export const ComparisonProvider = ({
     rawModeRef.current = settings.rawMode;
     if (!settings.rawMode) return;
     (Object.keys(rawBufferRef.current) as ProviderName[]).forEach((provider) =>
-      rawDirtyRef.current.add(provider)
+      rawDirtyRef.current.add(provider),
     );
     flushRawMessages();
   }, [settings.rawMode, flushRawMessages]);
@@ -295,7 +299,7 @@ export const ComparisonProvider = ({
         window.clearTimeout(rawFlushRef.current);
       }
     },
-    []
+    [],
   );
 
   const resetProviderOutputs = useCallback(
@@ -309,7 +313,7 @@ export const ComparisonProvider = ({
       });
       resetRawMessages(providersToReset);
     },
-    [resetRawMessages]
+    [resetRawMessages],
   );
 
   const clearTranscriptOutputs = () => {
@@ -569,7 +573,7 @@ export const ComparisonProvider = ({
       } else {
         if (!navigator.mediaDevices?.getUserMedia) {
           throw new Error(
-            "The MediaDevices API is not available in this browser. Please ensure you are running in a secure context (HTTPS)."
+            "The MediaDevices API is not available in this browser. Please ensure you are running in a secure context (HTTPS).",
           );
         }
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -597,7 +601,7 @@ export const ComparisonProvider = ({
       setProviderOutputs((prev) => {
         const newState = { ...prev };
         currentProviders.forEach(
-          (p) => (newState[p].statusMessage = "Connecting...")
+          (p) => (newState[p].statusMessage = "Connecting..."),
         );
         return newState;
       });
@@ -619,7 +623,7 @@ export const ComparisonProvider = ({
         setProviderOutputs((prev) => {
           const newState = { ...prev };
           currentProviders.forEach(
-            (p) => (newState[p].statusMessage = "Recording...")
+            (p) => (newState[p].statusMessage = "Recording..."),
           );
           return newState;
         });
@@ -637,6 +641,9 @@ export const ComparisonProvider = ({
           // Reset first so a leftover preview connection can't double the output.
           analyserRef.current.disconnect();
           analyserRef.current.connect(context.destination);
+          if (recordingDestinationRef.current) {
+            analyserRef.current.connect(recordingDestinationRef.current);
+          }
         }
 
         processorNodeRef.current.onaudioprocess = (e: AudioProcessingEvent) => {
@@ -653,7 +660,7 @@ export const ComparisonProvider = ({
             const resampledData = resample(
               inputData,
               inputSampleRate,
-              targetSampleRate
+              targetSampleRate,
             );
             if (resampledData.length > 0) {
               const pcmInt16 = floatTo16BitPCM(resampledData);
@@ -761,7 +768,7 @@ export const ComparisonProvider = ({
                 } else {
                   incomingNonFinalParts.push(frontendPart);
                 }
-              }
+              },
             );
             currentProviderOutput.finalParts = [
               ...(currentProviderOutput.finalParts || []),
@@ -849,6 +856,23 @@ export const ComparisonProvider = ({
     };
   }, [stopRecordingInternal]);
 
+  const getRecordingAudioStreams = useCallback((): MediaStream[] => {
+    const streams: MediaStream[] = [];
+    if (streamRef.current) streams.push(streamRef.current);
+    const context = fileAudioContextRef.current;
+    const analyser = analyserRef.current;
+    if (context && analyser && context.state !== "closed") {
+      let destination = recordingDestinationRef.current;
+      if (!destination || destination.context !== context) {
+        destination = context.createMediaStreamDestination();
+        recordingDestinationRef.current = destination;
+      }
+      analyser.connect(destination); // no-op when already connected
+      streams.push(destination.stream);
+    }
+    return streams;
+  }, []);
+
   const contextValue: ComparisonContextType = {
     recordingState,
     providerOutputs,
@@ -867,6 +891,7 @@ export const ComparisonProvider = ({
     selectedAudioFileName,
     audioRef,
     analyserRef,
+    getRecordingAudioStreams,
   };
 
   return (
@@ -887,14 +912,14 @@ export const useComparison = (): ComparisonContextType => {
 function resample(
   inputBuffer: Float32Array,
   inputSampleRate: number,
-  targetSampleRate: number
+  targetSampleRate: number,
 ): Float32Array {
   if (inputSampleRate === targetSampleRate) {
     return inputBuffer;
   }
   const inputLength = inputBuffer.length;
   const outputLength = Math.floor(
-    (inputLength * targetSampleRate) / inputSampleRate
+    (inputLength * targetSampleRate) / inputSampleRate,
   );
   if (outputLength === 0) {
     return new Float32Array(0);

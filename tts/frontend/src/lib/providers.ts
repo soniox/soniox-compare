@@ -5,11 +5,15 @@
 export const PROVIDERS = [
   "soniox",
   "openai",
+  "elevenlabs:v4",
   "elevenlabs",
   "fish",
   "inworld",
   "xai",
   "google",
+  "google:3.8-flash",
+  "google:3.8-flash-lite",
+  "google:3.1-flash",
   "cartesia",
   "deepgram",
   "azure",
@@ -46,6 +50,7 @@ export const PROVIDER_DISPLAY_NAMES: Record<ProviderGroup, string> = {
 export const PROVIDER_MODELS: Record<ProviderName, string> = {
   soniox: "tts-rt-v2",
   openai: "gpt-4o-mini-tts",
+  "elevenlabs:v4": "eleven_v4",
   elevenlabs: "eleven_v3",
   fish: "s2.1-pro",
   inworld: "inworld-tts-2",
@@ -53,6 +58,9 @@ export const PROVIDER_MODELS: Record<ProviderName, string> = {
   // name here. The card renders no model line.
   xai: "",
   google: "gemini-2.5-flash-tts",
+  "google:3.8-flash": "gemini-3.8-flash-tts",
+  "google:3.8-flash-lite": "gemini-3.8-flash-lite-tts",
+  "google:3.1-flash": "gemini-3.1-flash-tts-preview",
   cartesia: "sonic-3.6",
   deepgram: "aura-2",
   azure: "dragon-hd-omni",

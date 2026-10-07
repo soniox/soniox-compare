@@ -30,7 +30,11 @@ from providers.base import ProviderError
 PROVIDER_MAP = {
     "soniox": soniox.generate,
     "google": google.generate,
+    "google:3.8-flash": partial(google.generate_gemini, key="google:3.8-flash"),
+    "google:3.8-flash-lite": partial(google.generate_gemini, key="google:3.8-flash-lite"),
+    "google:3.1-flash": partial(google.generate_gemini, key="google:3.1-flash"),
     "openai": openai.generate,
+    "elevenlabs:v4": partial(elevenlabs.generate, key="elevenlabs:v4"),
     "elevenlabs": elevenlabs.generate,
     "fish": fish.generate,
     "inworld": inworld.generate,

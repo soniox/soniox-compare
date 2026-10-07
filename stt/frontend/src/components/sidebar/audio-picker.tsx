@@ -9,7 +9,7 @@ import {
 import { useComparison } from "@/contexts/comparison-context";
 import { useUrlSettings, type UrlSettings } from "@/hooks/use-url-settings";
 import { Button } from "../ui/button";
-import { ChevronRight, FileAudio, Upload } from "lucide-react";
+import { ChevronRight, FileAudio, FileUp, Upload } from "lucide-react";
 import { useState, useRef } from "react";
 import { ResponsiveTooltip } from "../ui/responsive-tooltip";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
@@ -108,7 +108,7 @@ export const ChooseAudioFileDialog = ({ disabled }: { disabled?: boolean }) => {
   const handleSelectPredefinedFile = async (
     url: string,
     name: string,
-    defaults?: AudioFileDefaults
+    defaults?: AudioFileDefaults,
   ) => {
     setIsProcessingFile(true);
     clearAudio();
@@ -152,7 +152,7 @@ export const ChooseAudioFileDialog = ({ disabled }: { disabled?: boolean }) => {
   };
 
   const handleCustomFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (file) processFile(file);
@@ -192,7 +192,7 @@ export const ChooseAudioFileDialog = ({ disabled }: { disabled?: boolean }) => {
               }
               aria-label="Select audio file"
             >
-              <Upload className="w-4 h-4" />
+              <FileUp className="w-4 h-4" />
             </Button>
           </DialogTrigger>
         </ResponsiveTooltip>
@@ -228,13 +228,13 @@ export const ChooseAudioFileDialog = ({ disabled }: { disabled?: boolean }) => {
                 "group flex w-full cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:flex-col sm:justify-center sm:gap-2 sm:py-6 sm:text-center",
                 isDragging
                   ? "border-soniox bg-soniox/10"
-                  : "border-zinc-300 bg-zinc-50/60 hover:border-soniox hover:bg-soniox/5 dark:border-zinc-700 dark:bg-zinc-800/40 dark:hover:border-soniox"
+                  : "border-zinc-300 bg-zinc-50/60 hover:border-soniox hover:bg-soniox/5 dark:border-zinc-700 dark:bg-zinc-800/40 dark:hover:border-soniox",
               )}
             >
               <span
                 className={cn(
                   "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-soniox/10 text-soniox transition-transform sm:h-11 sm:w-11",
-                  isDragging ? "scale-110" : "group-hover:scale-110"
+                  isDragging ? "scale-110" : "group-hover:scale-110",
                 )}
               >
                 <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -284,13 +284,13 @@ export const ChooseAudioFileDialog = ({ disabled }: { disabled?: boolean }) => {
                     handleSelectPredefinedFile(
                       file.url,
                       file.name,
-                      file.defaults
+                      file.defaults,
                     )
                   }
                   disabled={isProcessingFile}
                   className={cn(
                     "group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
-                    "cursor-pointer hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
+                    "cursor-pointer hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800",
                   )}
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-soniox/10 text-soniox">

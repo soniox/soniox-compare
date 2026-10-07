@@ -106,11 +106,9 @@ class SonioxProvider(BaseProvider):
                 self.params.target_language,
                 self.params.mode,
             )
-            # Soniox doesn't reliably respond to WS PINGs; we use the
-            # documented application-level keepalives instead. Leaving
-            # auto-ping on causes spurious 1011 closes.
             self._stt_ws = await websockets.connect(
-                self.service.websocket_url, ping_interval=None
+                self.service.websocket_url,
+                additional_headers={"Authorization": f"Bearer {self.api_key}"},
             )
             await self._stt_ws.send(json.dumps(self._build_stt_config()))
 
@@ -123,7 +121,8 @@ class SonioxProvider(BaseProvider):
             if self.emits_audio:
                 log.info("tts.connect model=%s voice=%s", TTS_MODEL, self.params.voice)
                 self._tts_ws = await websockets.connect(
-                    self.service.tts_websocket_url, ping_interval=None
+                    self.service.tts_websocket_url,
+                    additional_headers={"Authorization": f"Bearer {self.api_key}"},
                 )
                 self._tasks += [
                     asyncio.create_task(self._tts_send_loop()),
@@ -603,7 +602,6 @@ class SonioxProvider(BaseProvider):
 
     def _build_stt_config(self) -> dict:
         cfg = {
-            "api_key": self.api_key,
             "model": STT_MODEL,
             "audio_format": self.config.common.audio_format,
             "num_channels": self.config.common.num_channels,
@@ -624,7 +622,6 @@ class SonioxProvider(BaseProvider):
 
     def _build_tts_config(self, stream_id: str) -> dict:
         return {
-            "api_key": self.api_key,
             "stream_id": stream_id,
             "model": TTS_MODEL,
             "voice": self.params.voice,
